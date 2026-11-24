@@ -82,7 +82,9 @@ Wave 5 replaced every remaining browse/detail placeholder after both
 Integration fixes: all route args use `NavBackStackEntry.savedStateHandle.get<String>()`
 (KMP navigation has no `Bundle.getString`); missing Compose `dp`/`Modifier`/`padding`
 imports were added. CI additionally needed `macos-15-intel` (arm64 capacity
-failures) and a 10 GB Gradle heap for the Kotlin/Native LTO link step.
+failures) and a 10 GB Gradle heap for the Kotlin/Native LTO link step. The
+Xcode "Compile Kotlin" phase now reuses the already linked device framework
+instead of starting a second, under-heaped Kotlin/Native link.
 
 Still outstanding: Discord/scrobble integrations, account-based imports,
 DRM/FairPlay, radio continuation, ciphered/PoToken-only streams and the

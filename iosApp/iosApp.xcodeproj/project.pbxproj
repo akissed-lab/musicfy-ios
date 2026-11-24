@@ -170,7 +170,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "cd \"$SRCROOT/..\"\n./gradlew :composeApp:embedAndSignAppleFrameworkForXcode";
+			shellScript = "cd \"$SRCROOT/..\"\nif [ -d \"composeApp/build/bin/iosArm64/releaseFramework/ComposeApp.framework\" ]; then\n  mkdir -p \"composeApp/build/xcode-frameworks/Release/iphoneos\"\n  rm -rf \"composeApp/build/xcode-frameworks/Release/iphoneos/ComposeApp.framework\"\n  cp -R \"composeApp/build/bin/iosArm64/releaseFramework/ComposeApp.framework\" \"composeApp/build/xcode-frameworks/Release/iphoneos/\"\nelse\n  ./gradlew :composeApp:embedAndSignAppleFrameworkForXcode\nfi";
 		};
 /* End PBXShellScriptBuildPhase section */
 

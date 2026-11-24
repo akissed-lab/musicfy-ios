@@ -48,9 +48,7 @@ jobs:
       - name: Compile Kotlin/Native framework for iOS devices
         run: |
           chmod +x ./gradlew
-          ./gradlew --no-daemon \
-            -Dorg.gradle.jvmargs="-Xmx10240M -Dkotlin.daemon.jvm.options=-Xmx4096M -XX:+UseParallelGC" \
-            :composeApp:linkReleaseFrameworkIosArm64
+          ./gradlew --no-daemon :composeApp:linkReleaseFrameworkIosArm64
 
       - name: Prepare code signing
         id: signing
