@@ -1,0 +1,38 @@
+package com.music.directlyrics
+
+import com.example.musicfy.network.createPlatformHttpClient
+import io.ktor.client.plugins.HttpTimeout
+import io.ktor.client.plugins.UserAgent
+import io.ktor.client.plugins.compression.ContentEncoding
+import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
+import io.ktor.http.ContentType
+import io.ktor.serialization.kotlinx.json.json
+import kotlinx.serialization.json.Json
+
+internal val LyricsJson = Json {
+    ignoreUnknownKeys = true
+    coerceInputValues = true
+    isLenient = true
+}
+
+// one client for netease, qq music and deezer, some label their json as plain text or html so those are read as json too
+internal val lyricsHttp by lazy {
+    createPlatformHttpClient().config {
+        expectSuccess = true
+        install(HttpTimeout) {
+            connectTimeoutMillis = 5_000
+            requestTimeoutMillis = 10_000
+        }
+        // says who's asking so the server owner can reach us instead of blocking us
+        install(UserAgent) { agent = "Musicfy (+https://github.com/realidkroo/musicfy)" }
+        install(ContentNegotiation) {
+            json(LyricsJson)
+            json(LyricsJson, ContentType.Text.Plain)
+            json(LyricsJson, ContentType.Text.Html)
+        }
+        install(ContentEncoding) {
+            gzip()
+            deflate()
+        }
+    }
+}
