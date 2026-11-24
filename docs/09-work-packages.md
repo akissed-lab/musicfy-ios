@@ -16,12 +16,35 @@ Shared files that nobody except WP0 may touch: `GlassKit.kt`, `AppNavigation.kt`
 `NavigationBuilder.kt`, `Routes.kt`, `Music.sq`, `build.gradle.kts`,
 `libs.versions.toml`, `MusicfyApp.kt`.
 
-Status: wave 1 of WP1-WP4 has landed (8 ViewModels, 20 UI-kit/util files,
-9 settings/constants files, 15 player files). WP0 integrated the DI root,
-composition locals, glass tab icons and iOS settings bridges. The integrator
-is running a full `compileKotlinIosSimulatorArm64` over the combined batch.
+Status: wave 1 of WP1-WP4 has landed and the combined batch compiles green
+(`compileKotlinIosSimulatorArm64`, commit `dfe8395`). WP0 integrated the DI
+root, composition locals, glass tab icons, 34 new drawables, `Res.string.ok`,
+the gacha sound files and iOS settings bridges.
 
-Wave 2 candidates (not started): remaining local-only ViewModels, real main-tab
-screens replacing the 66 placeholders, AVFoundation playback bridge (WP4
-Stage 3) and provider/importer ports (WP5). A read-only reconnaissance of the
-four main tabs is in progress to scope the screen package precisely.
+Wave 2 has landed: 234 Kotlin files in `composeApp` (`verify.py`: 234/837,
+warnings=0). All four main tabs, the settings screen, the player core and the
+lyrics UI are now real glass screens; the remaining 62 destinations are still
+glass placeholders. WP0 compiled, fixed the resulting import/resource/delegate
+errors with the owning agents, and got a green `compileKotlinIosSimulatorArm64`
+after four passes (last remaining error was a `getOrDefault` type inference in
+`LocalSearchScreen`). Only non-fatal warnings remain (Skiko version skew,
+expect/actual beta, deprecated `Instant`/date accessors).
+
+Wave 2 parallel scope (all completed):
+
+| Wave | Read/write scope | Content |
+| --- | --- | --- |
+| WP5a | `ui/screens/search/SearchDesign.kt`, `ui/component/SettingsHighlight.kt`, `SettingsGroup.kt`, `SubSettingsScaffold.kt`, `Preference.kt`, `scrobble/ScrobbleSite.kt` | shared glass screen primitives |
+| WP1-2 | `viewmodels/**` | 7 more ViewModels incl. `HomeViewModel` state surface |
+| WP5b | `ui/screens/settings/**` | real `MusicfySettingsScreen` |
+| WP5c | `ui/screens/library/**` | real `LibraryHomeScreen` + nested helpers |
+| WP5d | `ui/screens/search/**` except `SearchDesign.kt` | real `SearchScreen` + local search |
+| WP4b | `ui/player/**` core files only | `BottomSheetPlayer`, `QueueScreen`, controls, styles |
+| WP4c | `ui/player/**` lyrics files only | `LyricsScreen`, glow/stagger/readings, lyric sheets |
+
+WP0 wires every new public composable into `NavigationBuilder.kt` and commits
+after a green compile. Still outstanding: AVFoundation bridge (WP4 Stage 3),
+Innertube pages/providers (WP5), importer, Discord/scrobble integrations and
+the 62 secondary routes that remain glass placeholders. Home/Search/Library
+shelves backed by YouTube currently render empty states with TODOs because the
+Innertube page layer is not ported yet.

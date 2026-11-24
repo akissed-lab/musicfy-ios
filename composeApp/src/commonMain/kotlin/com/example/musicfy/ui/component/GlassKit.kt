@@ -17,6 +17,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import com.example.musicfy.ui.theme.AmbientBackdrop
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
@@ -100,7 +101,7 @@ fun GlassRoot(
 ) {
     androidx.compose.runtime.CompositionLocalProvider(LocalGlassState provides state) {
         Box(modifier = modifier.fillMaxSize().background(GlassTokens.Base).clipToBounds()) {
-            GlassAurora()
+            AmbientBackdrop(Modifier.fillMaxSize())
             content()
         }
     }

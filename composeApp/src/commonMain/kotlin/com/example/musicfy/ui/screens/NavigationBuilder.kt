@@ -3,6 +3,7 @@ package com.example.musicfy.ui.screens
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.navigation.NamedNavArgument
 import androidx.navigation.NavBackStackEntry
@@ -11,7 +12,15 @@ import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
+import com.example.musicfy.settings.SettingsKeys
+import com.example.musicfy.settings.rememberPreference
 import com.example.musicfy.ui.component.GlassCard
+import com.example.musicfy.ui.screens.HomeScreen
+import com.example.musicfy.ui.screens.library.LibraryHomeScreen
+import com.example.musicfy.ui.screens.search.OnlineSearchResult
+import com.example.musicfy.ui.screens.search.SearchScreen
+import com.example.musicfy.ui.screens.settings.MusicfySettingsScreen
+import com.example.musicfy.ui.screens.settings.ProfileScreen
 
 /**
  * KMP port of upstream `ui/screens/NavigationBuilder.kt`.
@@ -23,12 +32,20 @@ import com.example.musicfy.ui.component.GlassCard
  */
 fun NavGraphBuilder.navigationBuilder(navController: NavHostController) {
     // ---- main tabs -----------------------------------------------------------------------------
-    ported(Screens.Home.route, navController)
+    composable(route = Screens.Home.route) {
+        HomeScreen(navController = navController)
+    }
     ported(Routes.SECTION_DETAIL, navController, stringArgs("sectionId"))
     ported(Routes.HISTORY, navController)
     ported(Routes.COMING_SOON, navController, stringArgs("sectionTitle"))
-    ported(Screens.Search.route, navController)
-    ported(Screens.Library.route, navController)
+    composable(route = Screens.Search.route) {
+        val pureBlack by rememberPreference(SettingsKeys.PureBlackKey, false)
+        SearchScreen(navController = navController, pureBlack = pureBlack)
+    }
+    composable(route = Screens.Library.route) {
+        val pureBlack by rememberPreference(SettingsKeys.PureBlackKey, false)
+        LibraryHomeScreen(navController = navController, pureBlack = pureBlack)
+    }
 
     // ---- library --------------------------------------------------------------------------------
     ported(Routes.LIBRARY_SONGS, navController)
@@ -46,11 +63,15 @@ fun NavGraphBuilder.navigationBuilder(navController: NavHostController) {
     ported(Routes.LIBRARY_ARTISTS, navController)
 
     // ---- settings -------------------------------------------------------------------------------
-    ported(Screens.Settings.route, navController)
+    composable(route = Screens.Settings.route) {
+        ProfileScreen(navController = navController)
+    }
     ported(Routes.STATS, navController)
     ported(Routes.CIPHER_SETTINGS, navController)
     ported(Routes.PLAYBACK_DIAGNOSTICS, navController)
-    ported(Routes.MUSICFY_SETTINGS, navController)
+    composable(route = Routes.MUSICFY_SETTINGS) {
+        MusicfySettingsScreen(navController = navController)
+    }
     ported(Routes.GENERAL_SETTINGS, navController)
     ported(Routes.APPEARANCE_SETTINGS, navController)
     ported(Routes.INTEGRATIONS, navController)
@@ -98,7 +119,9 @@ fun NavGraphBuilder.navigationBuilder(navController: NavHostController) {
 
     // ---- browse, search and detail pages --------------------------------------------------------
     ported(Routes.BROWSE, navController, stringArgs("browseId"))
-    ported(Routes.SEARCH_RESULTS, navController, stringArgs("query"))
+    composable(route = Routes.SEARCH_RESULTS, arguments = stringArgs("query")) {
+        OnlineSearchResult(navController = navController)
+    }
     ported(Routes.ALBUM, navController, stringArgs("albumId"))
     ported(Routes.ARTIST, navController, stringArgs("artistId"))
     ported(Routes.ARTIST_SONGS, navController, stringArgs("artistId"))
