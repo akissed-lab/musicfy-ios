@@ -791,6 +791,61 @@ class MusicDatabaseFacade(
     }
 
     // -----------------------------------------------------------------------------------------
+    // Public-link importer writes (no new tables; imported_* tables are declared in Music.sq)
+    // -----------------------------------------------------------------------------------------
+
+    /** Marks a matched YouTube song as being in the library. */
+    fun markSongInLibrary(songId: String, atMs: Long) {
+        queries.markSongInLibrary(atMs, atMs, songId)
+    }
+
+    /** Records which service brought a song in, for the "Imported from ..." shelves. */
+    fun tagImportedSong(songId: String, sourceKey: String, importedAtMs: Long) {
+        queries.insertImportedSongTag(songId, sourceKey, importedAtMs)
+    }
+
+    /** Finds a local, editable copy by the name the source gave the playlist. */
+    fun findPlaylistByName(name: String): PlaylistModel? =
+        queries.playlistByName(name).executeAsOneOrNull()?.let { assemblePlaylists(listOf(it)).firstOrNull() }
+
+    fun importedPlaylistId(sourceKey: String, remoteId: String): String? =
+        queries.importedPlaylistByRemoteId(sourceKey, remoteId).executeAsOneOrNull()?.playlistId
+
+    fun importedPlaylistSource(playlistId: String): String? =
+        queries.importedPlaylistSourceByPlaylistId(playlistId).executeAsOneOrNull()
+
+    fun recordImportedPlaylist(
+        playlistId: String,
+        sourceKey: String,
+        sessionId: Long?,
+        importedAtMs: Long,
+        remoteId: String?,
+        remoteUrl: String?,
+        lastSyncedAtMs: Long?,
+    ) {
+        queries.insertImportedPlaylistRecord(
+            playlistId,
+            sourceKey,
+            sessionId,
+            importedAtMs,
+            remoteId,
+            remoteUrl,
+            lastSyncedAtMs,
+        )
+    }
+
+    fun importedPlaylistTrackKeys(playlistId: String): List<String> =
+        queries.importedPlaylistTrackKeys(playlistId).executeAsList()
+
+    fun recordImportedPlaylistTrack(playlistId: String, trackKey: String) {
+        queries.insertImportedPlaylistTrack(playlistId, trackKey)
+    }
+
+    fun updatePlaylistThumbnail(playlistId: String, thumbnailUrl: String) {
+        queries.updatePlaylistThumbnail(thumbnailUrl, playlistId)
+    }
+
+    // -----------------------------------------------------------------------------------------
     // Internals
     // -----------------------------------------------------------------------------------------
 

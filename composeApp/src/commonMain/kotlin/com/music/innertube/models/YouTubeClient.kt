@@ -52,7 +52,7 @@ data class YouTubeClient(
     val deviceModel: String? = null,
     val androidSdkVersion: String? = null,
 ) {
-    fun toContext(): Context = Context(
+    fun toContext(visitorData: String? = null): Context = Context(
         client = Context.Client(
             clientName = clientName,
             clientVersion = clientVersion,
@@ -63,7 +63,7 @@ data class YouTubeClient(
             androidSdkVersion = androidSdkVersion,
             gl = "US",
             hl = "en",
-            visitorData = null,
+            visitorData = visitorData,
         ),
     )
 

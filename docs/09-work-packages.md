@@ -42,9 +42,33 @@ Wave 2 parallel scope (all completed):
 | WP4b | `ui/player/**` core files only | `BottomSheetPlayer`, `QueueScreen`, controls, styles |
 | WP4c | `ui/player/**` lyrics files only | `LyricsScreen`, glow/stagger/readings, lyric sheets |
 
-WP0 wires every new public composable into `NavigationBuilder.kt` and commits
-after a green compile. Still outstanding: AVFoundation bridge (WP4 Stage 3),
-Innertube pages/providers (WP5), importer, Discord/scrobble integrations and
-the 62 secondary routes that remain glass placeholders. Home/Search/Library
-shelves backed by YouTube currently render empty states with TODOs because the
-Innertube page layer is not ported yet.
+Wave 2 was committed as `a702094` after both `compileKotlinIosSimulatorArm64`
+and `compileKotlinIosArm64` went green. Important finding during wave-3
+planning: the iOS factory still returns `InMemoryPlaybackController`, so the
+player UI advances without producing sound. Wave 3 therefore has two coupled
+tracks: real YouTube Music search (Innertube search pages + `OnlineSearchVM` +
+`OnlineSearchResult`) and real audio (Innertube `player` + `StreamResolver` +
+AVFoundation). Spotify/Apple Music public-link import is wave 4.
+
+Waves 3 and 4 landed after both `compileKotlinIosSimulatorArm64` and
+`compileKotlinIosArm64` went green. `verify.py` now reports 274/837 ported files
+with zero warnings.
+
+| Agent | Scope | Content |
+| --- | --- | --- |
+| WP6a | `com/music/innertube/models/**`, `pages/**`, `utils/**` (new only) | search request/response models and renderer→`YTItem` parsers |
+| WP6b | `com/music/innertube/YouTube.kt`, `SearchFilter.kt`, `YouTubeUrlParser.kt` | `search/summary/suggestions/continuation` transport and top result |
+| WP6c | new `YouTubePlayer.kt`, `PlayerStreamModels.kt`, `YouTubeStreamResolver.kt` | direct audio URL → `ResolvedStream` |
+| WP6d | `OnlineSearchViewModel.kt`, `OnlineSearchResult.kt`, `SearchScreen.kt`, suggestion VM | real result/filter/paging UI |
+| WP6e | `iosMain/**/player/**` | AVFoundation engine replacing `InMemoryPlaybackController` |
+| WP7 | `importer/**`, `ImportSyncViewModel`, `importsync/**`, SQLDelight facade | public Spotify/Apple links → metadata → YouTube match → local playlist |
+
+Integration fixes needed for KMP: `kotlin.time.Clock` via `currentTimeMillis()`,
+`Mutex` instead of JVM `synchronized`, `savedStateHandle.get<String>("query")`
+instead of `Bundle.getString`, `Playlist` wrapper vs `PlaylistEntity`, explicit
+`database.insert(...)`, and AVFoundation audio-session calls without an ObjC
+error pointer.
+
+Still outstanding: Discord/scrobble integrations, account-based imports,
+DRM/FairPlay, radio continuation, ciphered/PoToken-only streams, browse detail
+pages and the secondary glass placeholders.

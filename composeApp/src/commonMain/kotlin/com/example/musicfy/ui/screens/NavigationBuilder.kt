@@ -21,6 +21,7 @@ import com.example.musicfy.ui.screens.search.OnlineSearchResult
 import com.example.musicfy.ui.screens.search.SearchScreen
 import com.example.musicfy.ui.screens.settings.MusicfySettingsScreen
 import com.example.musicfy.ui.screens.settings.ProfileScreen
+import com.example.musicfy.ui.screens.settings.importsync.ImportSyncScreen
 
 /**
  * KMP port of upstream `ui/screens/NavigationBuilder.kt`.
@@ -89,7 +90,10 @@ fun NavGraphBuilder.navigationBuilder(navController: NavHostController) {
     ported(Routes.EXPERIMENTAL_SETTINGS, navController)
 
     // ---- import / sync --------------------------------------------------------------------------
-    ported(Routes.IMPORT_SYNC, navController)
+    composable(route = Routes.IMPORT_SYNC) {
+        val pureBlack by rememberPreference(SettingsKeys.PureBlackKey, false)
+        ImportSyncScreen(navController = navController, pureBlack = pureBlack)
+    }
     ported(Routes.IMPORT_PROVIDERS, navController)
     ported(Routes.IMPORT_TUNE_MY_MUSIC, navController)
     ported(Routes.IMPORT_PROGRESS, navController)
@@ -119,8 +123,10 @@ fun NavGraphBuilder.navigationBuilder(navController: NavHostController) {
 
     // ---- browse, search and detail pages --------------------------------------------------------
     ported(Routes.BROWSE, navController, stringArgs("browseId"))
-    composable(route = Routes.SEARCH_RESULTS, arguments = stringArgs("query")) {
-        OnlineSearchResult(navController = navController)
+    composable(route = Routes.SEARCH_RESULTS, arguments = stringArgs("query")) { entry ->
+        val query = entry.savedStateHandle.get<String>("query") ?: ""
+        val pureBlack by rememberPreference(SettingsKeys.PureBlackKey, false)
+        OnlineSearchResult(navController = navController, query = query, pureBlack = pureBlack)
     }
     ported(Routes.ALBUM, navController, stringArgs("albumId"))
     ported(Routes.ARTIST, navController, stringArgs("artistId"))

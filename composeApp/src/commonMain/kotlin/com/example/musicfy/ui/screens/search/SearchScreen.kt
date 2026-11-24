@@ -1,10 +1,9 @@
 // SearchScreen.kt
 //
-// WP5d port of the Android main Search tab. The Android original relied on
-// Hilt, Activity BackHandler, SavedStateHandle, LocalPlayerAwareWindowInsets,
-// YouTubeUrlParser/YouTubeQueue and the Android-only SearchDesign helpers.
-// All of those are replaced here with commonMain primitives. The glass chrome
-// is deliberately local (private) so this file does not depend on the shared
+// WP5d port of the Android main Search tab. Hilt, Activity BackHandler,
+// SavedStateHandle and LocalPlayerAwareWindowInsets are replaced with commonMain
+// primitives; YouTubeUrlParser now routes video/artist links directly. The glass
+// chrome is deliberately local (private) so this file does not depend on the shared
 // SearchDesign.kt that another work package owns.
 //
 // TODO(search-design): swap SearchTabTopBar / SearchTabField / SearchTabAvatar
@@ -117,6 +116,7 @@ import com.music.innertube.models.ArtistItem
 import com.music.innertube.models.PlaylistItem
 import com.music.innertube.models.SongItem
 import com.music.innertube.models.YTItem
+import com.music.innertube.utils.YouTubeUrlParser
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
@@ -153,8 +153,8 @@ private data class SearchTabSuggestionState(
 
 /**
  * History and local library suggestions come from [OnlineSearchSuggestionViewModel],
- * which reads the real SQLDelight database. Network suggestions stay empty until the
- * KMP innertube endpoint is ported (the view model keeps that behaviour behind a TODO).
+ * which reads the real SQLDelight database. Online suggestions come from the ported
+ * `YouTube.searchSuggestions` endpoint in that same view model.
  */
 @Composable
 private fun rememberSearchTabSuggestions(query: String): SearchTabSuggestionState {
@@ -220,21 +220,25 @@ fun SearchScreen(
 
     val commit: (String) -> Unit = { raw ->
         val text = raw.trim()
-        if (text.isNotEmpty()) {
+        if (offlineMode && text.isNotEmpty()) {
+            // Offline results are rendered by SearchActiveContent; stay on them.
+            focusManager.clearFocus()
+        } else if (text.isNotEmpty()) {
             focusManager.clearFocus()
             active = false
-            // TODO(search): YouTubeUrlParser is not ported, so video/artist
-            // links currently go through the normal search results route.
-            navController.navigate("search/${encodeSearchQuery(text)}")
+            when (val parsed = YouTubeUrlParser.parse(text)) {
+                is YouTubeUrlParser.ParsedUrl.Video ->
+                    playerConnection?.playQueue(videoLinkQueue(videoId = parsed.id, title = text))
+
+                is YouTubeUrlParser.ParsedUrl.Artist ->
+                    navController.navigate("artist/${parsed.id}")
+
+                null -> navController.navigate("search/${encodeSearchQuery(text)}")
+            }
             if (!pauseSearchHistory) {
                 coroutineScope.launch(Dispatchers.Default) {
                     container?.database?.queries?.insertSearchHistory(text)
                 }
-            }
-            if (offlineMode) {
-                // Offline results are rendered by LocalSearchScreen / SearchActiveContent;
-                // do not attempt a network search from the main tab.
-                Unit
             }
         }
     }
@@ -384,18 +388,44 @@ fun SearchScreen(
     }
 }
 
-private fun encodeSearchQuery(value: String): String = buildString {
-    for (char in value) {
-        when (char) {
-            ' ' -> append("%20")
-            '%' -> append("%25")
-            '#' -> append("%23")
-            '?' -> append("%3F")
-            '/' -> append("%2F")
-            else -> append(char)
+/** Shared with the online result screen so search routes round-trip UTF-8 queries. */
+internal fun encodeSearchQuery(value: String): String = buildString {
+    value.encodeToByteArray().forEach { byte ->
+        val code = byte.toInt() and 0xFF
+        val unreserved = code in 'A'.code..'Z'.code ||
+            code in 'a'.code..'z'.code ||
+            code in '0'.code..'9'.code ||
+            code == '-'.code ||
+            code == '_'.code ||
+            code == '.'.code ||
+            code == '~'.code
+        if (unreserved) {
+            append(code.toChar())
+        } else {
+            append('%')
+            append(code.toString(16).uppercase().padStart(2, '0'))
         }
     }
 }
+
+private fun videoLinkQueue(
+    videoId: String,
+    title: String,
+): ListQueue = ListQueue(
+    title = title,
+    items = listOf(
+        PlaybackTrack(
+            mediaId = videoId,
+            metadata = MediaMetadata(
+                id = videoId,
+                title = title,
+                artists = emptyList(),
+                duration = 0,
+            ),
+            source = TrackSource.Remote(videoId),
+        ),
+    ),
+)
 
 private fun deleteHistoryEntry(entry: SearchHistory) {
     // TODO(db): expose a delete-by-id helper on MusicDatabaseFacade. Upstream used

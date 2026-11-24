@@ -11,10 +11,8 @@ import com.example.musicfy.db.MusicDatabaseFacade
 import com.example.musicfy.player.LocalPlaybackController
 import com.example.musicfy.player.PlaybackDependencies
 import com.example.musicfy.player.PlayerUiState
-import com.example.musicfy.player.ResolvedStream
-import com.example.musicfy.player.StreamResolver
+import com.example.musicfy.player.YouTubeStreamResolver
 import com.example.musicfy.player.createPlaybackController
-import com.example.musicfy.player.model.PlaybackTrack
 import com.example.musicfy.settings.ProvideSettingsStore
 import com.example.musicfy.settings.SettingsStore
 import com.example.musicfy.ui.component.AppNavHost
@@ -53,11 +51,7 @@ fun MusicfyApp() {
             dependencies = PlaybackDependencies(
                 settings = container.settings,
                 database = container.database,
-                // Stream resolution lives behind WP5/server; local/direct sources work today.
-                streamResolver = object : StreamResolver {
-                    override suspend fun resolve(track: PlaybackTrack): ResolvedStream =
-                        error("Stream resolver is not available for ${track.mediaId} yet")
-                },
+                streamResolver = YouTubeStreamResolver(),
             ),
         )
     }

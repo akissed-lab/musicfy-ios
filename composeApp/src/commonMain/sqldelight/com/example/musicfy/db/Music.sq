@@ -811,3 +811,34 @@ VALUES (:id, :secondaryId, :title, :subtitle, :thumbnailUrl, :type, :explicit, :
 
 deleteSpeedDialItem:
 DELETE FROM speed_dial_item WHERE id = :id;
+
+-- Public-link importer (uses the imported_song / imported_playlist tables declared above).
+-- Statement names are deliberately distinct from the facade's method names.
+insertImportedSongTag:
+INSERT OR REPLACE INTO imported_song(songId, source, importedAt) VALUES (?, ?, ?);
+
+insertImportedPlaylistRecord:
+INSERT OR REPLACE INTO imported_playlist(
+  playlistId, source, sessionId, importedAt, remoteId, remoteUrl, lastSyncedAt
+) VALUES (?, ?, ?, ?, ?, ?, ?);
+
+importedPlaylistByRemoteId:
+SELECT * FROM imported_playlist WHERE source = ? AND remoteId = ? LIMIT 1;
+
+importedPlaylistSourceByPlaylistId:
+SELECT source FROM imported_playlist WHERE playlistId = ? LIMIT 1;
+
+importedPlaylistTrackKeys:
+SELECT trackKey FROM imported_playlist_track WHERE playlistId = ?;
+
+insertImportedPlaylistTrack:
+INSERT OR IGNORE INTO imported_playlist_track(playlistId, trackKey) VALUES (?, ?);
+
+playlistByName:
+SELECT * FROM playlist WHERE name = ? AND isEditable = 1 ORDER BY createdAt LIMIT 1;
+
+markSongInLibrary:
+UPDATE song SET inLibrary = ?, dateModified = ? WHERE id = ?;
+
+updatePlaylistThumbnail:
+UPDATE playlist SET thumbnailUrl = ? WHERE id = ?;
