@@ -40,6 +40,7 @@ data class Menu(
                 @Serializable
                 data class DefaultServiceEndpoint(
                     val feedbackEndpoint: FeedbackEndpoint? = null,
+                    val subscribeEndpoint: SubscribeEndpoint? = null,
                 )
 
                 @Serializable

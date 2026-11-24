@@ -19,6 +19,7 @@ data class Tabs(
             @Serializable
             data class Content(
                 val sectionListRenderer: SectionListRenderer? = null,
+                val musicQueueRenderer: MusicQueueRenderer? = null,
             )
         }
     }

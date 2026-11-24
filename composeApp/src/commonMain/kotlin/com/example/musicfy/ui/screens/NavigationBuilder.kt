@@ -16,12 +16,20 @@ import com.example.musicfy.settings.SettingsKeys
 import com.example.musicfy.settings.rememberPreference
 import com.example.musicfy.ui.component.GlassCard
 import com.example.musicfy.ui.screens.HomeScreen
+import com.example.musicfy.ui.screens.artist.ArtistAlbumsScreen
+import com.example.musicfy.ui.screens.artist.ArtistItemsScreen
+import com.example.musicfy.ui.screens.artist.ArtistScreen
+import com.example.musicfy.ui.screens.artist.ArtistSimilarScreen
+import com.example.musicfy.ui.screens.artist.ArtistSongsScreen
 import com.example.musicfy.ui.screens.library.LibraryHomeScreen
+import com.example.musicfy.ui.screens.playlist.OnlinePlaylistScreen
+import com.example.musicfy.ui.screens.search.GenreScreen
 import com.example.musicfy.ui.screens.search.OnlineSearchResult
 import com.example.musicfy.ui.screens.search.SearchScreen
 import com.example.musicfy.ui.screens.settings.MusicfySettingsScreen
 import com.example.musicfy.ui.screens.settings.ProfileScreen
 import com.example.musicfy.ui.screens.settings.importsync.ImportSyncScreen
+import com.example.musicfy.ui.theme.ForceDarkTheme
 
 /**
  * KMP port of upstream `ui/screens/NavigationBuilder.kt`.
@@ -122,51 +130,116 @@ fun NavGraphBuilder.navigationBuilder(navController: NavHostController) {
     ported(Routes.MODULE_SIGN_IN, navController, stringArgs("id"))
 
     // ---- browse, search and detail pages --------------------------------------------------------
-    ported(Routes.BROWSE, navController, stringArgs("browseId"))
+    composable(route = Routes.BROWSE, arguments = stringArgs("browseId")) { entry ->
+        val browseId = entry.savedStateHandle.get<String>("browseId").orEmpty()
+        val pureBlackSetting by rememberPreference(SettingsKeys.PureBlackKey, false)
+        val pureBlack = pureBlackSetting && ForceDarkTheme
+        BrowseScreen(navController, browseId, pureBlack)
+    }
     composable(route = Routes.SEARCH_RESULTS, arguments = stringArgs("query")) { entry ->
         val query = entry.savedStateHandle.get<String>("query") ?: ""
         val pureBlack by rememberPreference(SettingsKeys.PureBlackKey, false)
         OnlineSearchResult(navController = navController, query = query, pureBlack = pureBlack)
     }
-    ported(Routes.ALBUM, navController, stringArgs("albumId"))
-    ported(Routes.ARTIST, navController, stringArgs("artistId"))
-    ported(Routes.ARTIST_SONGS, navController, stringArgs("artistId"))
-    ported(Routes.ARTIST_ALBUMS, navController, stringArgs("artistId"))
-    ported(Routes.ARTIST_SIMILAR, navController, stringArgs("artistId"))
-    ported(
-        Routes.ARTIST_ITEMS,
-        navController,
-        listOf(
+    composable(route = Routes.ALBUM, arguments = stringArgs("albumId")) { entry ->
+        val albumId = entry.savedStateHandle.get<String>("albumId").orEmpty()
+        val pureBlackSetting by rememberPreference(SettingsKeys.PureBlackKey, false)
+        val pureBlack = pureBlackSetting && ForceDarkTheme
+        AlbumScreen(navController, albumId, pureBlack)
+    }
+    composable(route = Routes.ARTIST, arguments = stringArgs("artistId")) { entry ->
+        val artistId = entry.savedStateHandle.get<String>("artistId").orEmpty()
+        val pureBlackSetting by rememberPreference(SettingsKeys.PureBlackKey, false)
+        val pureBlack = pureBlackSetting && ForceDarkTheme
+        ArtistScreen(navController, artistId, pureBlack)
+    }
+    composable(route = Routes.ARTIST_SONGS, arguments = stringArgs("artistId")) { entry ->
+        val artistId = entry.savedStateHandle.get<String>("artistId").orEmpty()
+        val pureBlackSetting by rememberPreference(SettingsKeys.PureBlackKey, false)
+        val pureBlack = pureBlackSetting && ForceDarkTheme
+        ArtistSongsScreen(navController, artistId, pureBlack)
+    }
+    composable(route = Routes.ARTIST_ALBUMS, arguments = stringArgs("artistId")) { entry ->
+        val artistId = entry.savedStateHandle.get<String>("artistId").orEmpty()
+        val pureBlackSetting by rememberPreference(SettingsKeys.PureBlackKey, false)
+        val pureBlack = pureBlackSetting && ForceDarkTheme
+        ArtistAlbumsScreen(navController, artistId, pureBlack)
+    }
+    composable(route = Routes.ARTIST_SIMILAR, arguments = stringArgs("artistId")) { entry ->
+        val artistId = entry.savedStateHandle.get<String>("artistId").orEmpty()
+        val pureBlackSetting by rememberPreference(SettingsKeys.PureBlackKey, false)
+        val pureBlack = pureBlackSetting && ForceDarkTheme
+        ArtistSimilarScreen(navController, artistId, pureBlack)
+    }
+    composable(
+        route = Routes.ARTIST_ITEMS,
+        arguments = listOf(
             navArgument("artistId") { type = NavType.StringType },
-            navArgument("browseId") { type = NavType.StringType; nullable = true },
-            navArgument("params") { type = NavType.StringType; nullable = true },
+            navArgument("browseId") {
+                type = NavType.StringType; nullable = true; defaultValue = null
+            },
+            navArgument("params") {
+                type = NavType.StringType; nullable = true; defaultValue = null
+            },
         ),
-    )
-    ported(Routes.ONLINE_PLAYLIST, navController, stringArgs("playlistId"))
+    ) { entry ->
+        val artistId = entry.savedStateHandle.get<String>("artistId").orEmpty()
+        val browseId = entry.savedStateHandle.get<String>("browseId").nullableArg()
+        val params = entry.savedStateHandle.get<String>("params").nullableArg()
+        val pureBlackSetting by rememberPreference(SettingsKeys.PureBlackKey, false)
+        val pureBlack = pureBlackSetting && ForceDarkTheme
+        ArtistItemsScreen(navController, artistId, browseId, params, pureBlack)
+    }
+    composable(route = Routes.ONLINE_PLAYLIST, arguments = stringArgs("playlistId")) { entry ->
+        val playlistId = entry.savedStateHandle.get<String>("playlistId").orEmpty()
+        val pureBlackSetting by rememberPreference(SettingsKeys.PureBlackKey, false)
+        val pureBlack = pureBlackSetting && ForceDarkTheme
+        OnlinePlaylistScreen(navController, playlistId, pureBlack)
+    }
     ported(Routes.LOCAL_PLAYLIST, navController, stringArgs("playlistId"))
     ported(Routes.AUTO_PLAYLIST, navController, stringArgs("playlist"))
     ported(Routes.CACHE_PLAYLIST, navController, stringArgs("playlist"))
     ported(Routes.TOP_PLAYLIST, navController, stringArgs("top"))
-    ported(
-        Routes.GENRE,
-        navController,
-        listOf(
+    composable(
+        route = Routes.GENRE,
+        arguments = listOf(
             navArgument("browseId") { type = NavType.StringType },
-            navArgument("params") { type = NavType.StringType; nullable = true },
+            navArgument("params") {
+                type = NavType.StringType; nullable = true; defaultValue = null
+            },
         ),
-    )
-    ported(
-        Routes.YOUTUBE_BROWSE,
-        navController,
-        listOf(
-            navArgument("browseId") { type = NavType.StringType; nullable = true },
-            navArgument("params") { type = NavType.StringType; nullable = true },
+    ) { entry ->
+        val browseId = entry.savedStateHandle.get<String>("browseId").orEmpty()
+        val params = entry.savedStateHandle.get<String>("params").nullableArg()
+        val pureBlackSetting by rememberPreference(SettingsKeys.PureBlackKey, false)
+        val pureBlack = pureBlackSetting && ForceDarkTheme
+        GenreScreen(navController, browseId, params, pureBlack)
+    }
+    composable(
+        route = Routes.YOUTUBE_BROWSE,
+        arguments = listOf(
+            navArgument("browseId") {
+                type = NavType.StringType; nullable = true; defaultValue = null
+            },
+            navArgument("params") {
+                type = NavType.StringType; nullable = true; defaultValue = null
+            },
         ),
-    )
+    ) { entry ->
+        val browseId = entry.savedStateHandle.get<String>("browseId").nullableArg()
+        val params = entry.savedStateHandle.get<String>("params").nullableArg()
+        val pureBlackSetting by rememberPreference(SettingsKeys.PureBlackKey, false)
+        val pureBlack = pureBlackSetting && ForceDarkTheme
+        YouTubeBrowseScreen(navController, browseId, params, pureBlack)
+    }
 }
 
 private fun stringArgs(name: String): List<NamedNavArgument> =
     listOf(navArgument(name) { type = NavType.StringType })
+
+/** Navigation encodes missing/nullable args as either absent, empty or the literal "null". */
+private fun String?.nullableArg(): String? =
+    takeIf { !it.isNullOrEmpty() && it != "null" }
 
 private fun NavGraphBuilder.ported(
     route: String,

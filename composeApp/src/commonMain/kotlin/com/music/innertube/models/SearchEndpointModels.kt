@@ -22,6 +22,7 @@ data class NavigationEndpoint(
     val searchEndpoint: SearchQueryEndpoint? = null,
     val feedbackEndpoint: FeedbackEndpoint? = null,
     val continuationCommand: ContinuationCommand? = null,
+    val subscribeEndpoint: SubscribeEndpoint? = null,
 ) {
     val anyWatchEndpoint: SearchWatchEndpoint?
         get() = watchEndpoint ?: watchPlaylistEndpoint

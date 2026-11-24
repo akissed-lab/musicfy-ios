@@ -491,6 +491,15 @@ JOIN song ON song.id = sam.songId
 WHERE sam.artistId = :artistId
 LIMIT :previewSize;
 
+-- Newest albums an artist appears on, for the artist page's local preview shelf.
+artistAlbumsPreview:
+SELECT al.* FROM album_artist_map am
+JOIN album al ON al.id = am.albumId
+WHERE am.artistId = :artistId
+GROUP BY al.id
+ORDER BY al.bookmarkedAt DESC, al.lastUpdateTime DESC, al.id
+LIMIT :previewSize;
+
 mostPlayedSongsByArtist:
 SELECT song.* FROM song
 JOIN (SELECT e.songId, SUM(e.playTime) AS totalPlayTime

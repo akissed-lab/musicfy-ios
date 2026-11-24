@@ -69,6 +69,21 @@ instead of `Bundle.getString`, `Playlist` wrapper vs `PlaylistEntity`, explicit
 `database.insert(...)`, and AVFoundation audio-session calls without an ObjC
 error pointer.
 
+Wave 5 replaced every remaining browse/detail placeholder after both
+`compileKotlinIosSimulatorArm64` and `compileKotlinIosArm64` went green.
+`verify.py` now reports 320/837 ported files with zero warnings.
+
+| Agent | Scope | Content |
+| --- | --- | --- |
+| WP8a | `com/music/innertube/models/**`, `pages/**`, `YouTube.kt` | full `BrowseResponse`, renderers, `browse/album/artist/playlist/related` + continuations |
+| WP8b | `viewmodels/**`, `db/**`, `NavigationBuilder.kt` | 9 detail VMs, `artistAlbumsPreview`, real route destinations |
+| WP8c | `ui/screens/{album,artist,playlist,browse}/**`, `GenreScreen`, `YouTubeBrowseScreen` | 10 real glass screens reusing `PlaylistDetailScaffold` and detail primitives |
+
+Integration fixes: all route args use `NavBackStackEntry.savedStateHandle.get<String>()`
+(KMP navigation has no `Bundle.getString`); missing Compose `dp`/`Modifier`/`padding`
+imports were added. CI additionally needed `macos-15-intel` (arm64 capacity
+failures) and a 10 GB Gradle heap for the Kotlin/Native LTO link step.
+
 Still outstanding: Discord/scrobble integrations, account-based imports,
-DRM/FairPlay, radio continuation, ciphered/PoToken-only streams, browse detail
-pages and the secondary glass placeholders.
+DRM/FairPlay, radio continuation, ciphered/PoToken-only streams and the
+secondary glass placeholders.

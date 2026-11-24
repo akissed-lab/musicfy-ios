@@ -1,28 +1,23 @@
 package com.example.musicfy.viewmodels
 
 import androidx.lifecycle.ViewModel
-import com.music.innertube.models.YTItem
+import androidx.lifecycle.viewModelScope
+import com.example.musicfy.utils.reportException
+import com.music.innertube.YouTube
+import com.music.innertube.models.PlaylistItem
+import com.music.innertube.pages.BrowseResult
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
 
 /**
- * Local stand-in for upstream `com.music.innertube.pages.BrowseResult` (the browse page parser is
- * not part of the KMP innertube port). The field names match so ported UI keeps working.
- * TODO: replace with the real page model when `YouTube.browse` is ported.
- */
-data class BrowseResult(
-    val title: String?,
-    val items: List<Item>,
-) {
-    data class Item(
-        val title: String?,
-        val items: List<YTItem>,
-    )
-}
-
-/**
- * Upstream read `browseId`/`params` from SavedStateHandle and fetched the genre page from
- * YouTube. In the KMP port the route args are plain constructor parameters and the page is
- * unavailable, so both state flows settle on their empty values.
+ * Genre / mood page. Route args are constructor parameters; the page and its community playlist
+ * previews come from YouTube rather than the old local BrowseResult stand-in.
  */
 class GenreViewModel(
     container: AppContainer,
@@ -32,13 +27,69 @@ class GenreViewModel(
     private val browseId: String = browseId
     private val params: String? = params?.takeIf { it != "null" }
 
-    val result = MutableStateFlow<BrowseResult?>(null)
+    private val _result = MutableStateFlow<BrowseResult?>(null)
+    val result: StateFlow<BrowseResult?> = _result.asStateFlow()
 
-    val communityPlaylists = MutableStateFlow<List<CommunityPlaylistItem>?>(null)
+    private val _communityPlaylists = MutableStateFlow<List<CommunityPlaylistItem>?>(null)
+    val communityPlaylists: StateFlow<List<CommunityPlaylistItem>?> = _communityPlaylists.asStateFlow()
 
     init {
-        // TODO: YouTube.browse(browseId, params) and YouTube.playlist(id) are not ported.
-        result.value = BrowseResult(title = null, items = emptyList())
-        communityPlaylists.value = emptyList()
+        load()
+    }
+
+    fun retry() {
+        load()
+    }
+
+    private fun load() {
+        viewModelScope.launch {
+            YouTube.browse(browseId, params)
+                .onSuccess { page ->
+                    _result.value = page
+                    loadCommunity(page)
+                }
+                .onFailure { throwable ->
+                    reportException(throwable)
+                    _result.value = BrowseResult(title = null, items = emptyList())
+                    _communityPlaylists.value = emptyList()
+                }
+        }
+    }
+
+    private suspend fun loadCommunity(page: BrowseResult) {
+        val candidates = page.items
+            .asSequence()
+            .flatMap { section -> section.items.asSequence() }
+            .filterIsInstance<PlaylistItem>()
+            .distinctBy { it.id }
+            .take(3)
+            .toList()
+
+        if (candidates.isEmpty()) {
+            _communityPlaylists.value = emptyList()
+            return
+        }
+
+        val resolved = coroutineScope {
+            candidates.map { playlist ->
+                async(Dispatchers.Default) {
+                    YouTube.playlist(playlist.id).getOrNull()?.let { detail ->
+                        val songs = detail.songs.take(6)
+                        if (songs.isNotEmpty()) {
+                            CommunityPlaylistItem(
+                                playlist.copy(
+                                    songCountText = detail.playlist.songCountText
+                                        ?: playlist.songCountText,
+                                ),
+                                songs,
+                            )
+                        } else {
+                            null
+                        }
+                    }
+                }
+            }.awaitAll()
+        }.filterNotNull()
+        _communityPlaylists.value = resolved
     }
 }

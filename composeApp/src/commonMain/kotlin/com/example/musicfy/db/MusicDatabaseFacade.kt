@@ -304,6 +304,14 @@ class MusicDatabaseFacade(
             .asFlowOfSongs()
             .map { rows -> rows.filter { it.song.inLibrary != null } }
 
+    /** Newest local albums for an artist, used by the artist page preview shelf. */
+    fun artistAlbumsPreview(
+        artistId: String,
+        previewSize: Int = 6,
+    ): Flow<List<AlbumModel>> =
+        queries.artistAlbumsPreview(artistId, previewSize.toLong())
+            .asFlowOfAlbums()
+
     fun mostPlayedArtists(
         fromTimeStamp: Long,
         limit: Int = 6,
