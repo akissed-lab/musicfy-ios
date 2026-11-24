@@ -3,7 +3,7 @@ package com.example.musicfy.db
 import app.cash.sqldelight.db.SqlDriver
 
 /** Platform-specific SQLite driver factory (iOS implementation in iosMain). */
-expect class DatabaseDriverFactory {
+expect class DatabaseDriverFactory() {
     fun createDriver(): SqlDriver
 }
 

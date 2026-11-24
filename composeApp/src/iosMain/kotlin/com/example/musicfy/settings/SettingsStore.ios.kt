@@ -4,7 +4,7 @@ import platform.Foundation.NSNumber
 import platform.Foundation.NSUserDefaults
 
 /** NSUserDefaults-backed equivalent of Android DataStore "settings". */
-actual class SettingsStore {
+actual class SettingsStore actual constructor() {
     private val defaults = NSUserDefaults.standardUserDefaults
 
     actual fun getBoolean(key: String, default: Boolean): Boolean =

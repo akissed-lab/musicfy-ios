@@ -15,6 +15,9 @@ sqldelight {
     databases {
         create("MusicDatabase") {
             packageName.set("com.example.musicfy.db")
+            // Room's @Upsert compiles to ON CONFLICT DO UPDATE, which needs SQLite >= 3.24.
+            // SQLDelight's default dialect is 3.18 and rejects that syntax.
+            dialect("app.cash.sqldelight:sqlite-3-35-dialect:2.4.1")
         }
     }
 }
@@ -46,6 +49,7 @@ kotlin {
             implementation(libs.ktor.client.logging)
             implementation(libs.ktor.client.encoding)
             implementation(libs.sqldelight.runtime)
+            implementation(libs.sqldelight.coroutines.extensions)
 
             implementation(libs.navigation.compose)
             implementation(libs.lifecycle.viewmodel.compose)

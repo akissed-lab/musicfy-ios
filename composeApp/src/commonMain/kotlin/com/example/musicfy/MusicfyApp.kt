@@ -1,33 +1,37 @@
 package com.example.musicfy
 
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.dp
 import coil3.ImageLoader
 import coil3.compose.setSingletonImageLoaderFactory
-import com.example.musicfy.ui.component.GlassCard
-import com.example.musicfy.ui.component.GlassNavigationBar
+import com.example.musicfy.db.DatabaseDriverFactory
+import com.example.musicfy.db.MusicDatabaseFacade
+import com.example.musicfy.player.LocalPlaybackController
+import com.example.musicfy.player.PlaybackDependencies
+import com.example.musicfy.player.PlayerUiState
+import com.example.musicfy.player.ResolvedStream
+import com.example.musicfy.player.StreamResolver
+import com.example.musicfy.player.createPlaybackController
+import com.example.musicfy.player.model.PlaybackTrack
+import com.example.musicfy.settings.ProvideSettingsStore
+import com.example.musicfy.settings.SettingsStore
+import com.example.musicfy.ui.component.AppNavHost
 import com.example.musicfy.ui.component.GlassRoot
-import com.example.musicfy.ui.screens.Screens
 import com.example.musicfy.ui.theme.MusicfyTheme
-import org.jetbrains.compose.resources.stringResource
+import com.example.musicfy.viewmodels.AppContainer
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 
 /**
  * Root of the iOS application. Every screen is Kotlin/Compose shared code;
  * iosApp contains only the UIViewController bootstrap.
  *
  * The whole app lives inside [GlassRoot] so every ported screen inherits the
- * Apple Music-style liquid glass backdrop, chrome and card language. Screen
- * bodies are replaced with the ported originals stage by stage.
+ * Apple Music-style liquid glass backdrop, chrome and card language.
  */
 @Composable
 fun MusicfyApp() {
@@ -36,29 +40,45 @@ fun MusicfyApp() {
         ImageLoader.Builder(context).build()
     }
 
+    val container = remember {
+        AppContainer(
+            database = MusicDatabaseFacade(DatabaseDriverFactory().createDriver()),
+            settings = SettingsStore(),
+        )
+    }
+    val playerScope = remember { CoroutineScope(SupervisorJob() + Dispatchers.Default) }
+    val player = remember {
+        createPlaybackController(
+            scope = playerScope,
+            dependencies = PlaybackDependencies(
+                settings = container.settings,
+                database = container.database,
+                // Stream resolution lives behind WP5/server; local/direct sources work today.
+                streamResolver = object : StreamResolver {
+                    override suspend fun resolve(track: PlaybackTrack): ResolvedStream =
+                        error("Stream resolver is not available for ${track.mediaId} yet")
+                },
+            ),
+        )
+    }
+    val playerUiState = remember(player) { PlayerUiState(player) }
+    DisposableEffect(player, playerScope) {
+        onDispose {
+            player.dispose()
+            playerScope.cancel()
+        }
+    }
+
     MusicfyTheme {
-        GlassRoot {
-            var screen by remember { mutableStateOf<Screens>(Screens.Home) }
-
-            Box(modifier = Modifier.fillMaxSize()) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(bottom = 104.dp),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    GlassCard {
-                        Text(text = "${stringResource(screen.title)} (port in progress)")
-                    }
+        ProvideSettingsStore(container.settings) {
+            CompositionLocalProvider(
+                LocalPlaybackController provides player,
+                LocalAppContainer provides container,
+                LocalPlayerUiState provides playerUiState,
+            ) {
+                GlassRoot {
+                    AppNavHost()
                 }
-
-                GlassNavigationBar(
-                    items = Screens.MainScreens,
-                    selected = screen,
-                    onSelect = { screen = it },
-                    label = { stringResource(it.title) },
-                    modifier = Modifier.align(Alignment.BottomCenter),
-                )
             }
         }
     }

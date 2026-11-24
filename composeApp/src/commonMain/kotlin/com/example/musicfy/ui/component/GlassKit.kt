@@ -203,6 +203,7 @@ fun <T> GlassNavigationBar(
     selected: T,
     onSelect: (T) -> Unit,
     label: @Composable (T) -> String,
+    icon: @Composable (T) -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     Row(
@@ -233,7 +234,12 @@ fun <T> GlassNavigationBar(
                         Modifier
                     },
                 )
-            Box(modifier = itemModifier) {
+            Column(
+                modifier = itemModifier,
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                icon(item)
                 Text(
                     text = label(item),
                     style = MaterialTheme.typography.labelMedium,

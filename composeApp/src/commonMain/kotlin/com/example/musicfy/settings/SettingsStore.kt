@@ -7,7 +7,7 @@ package com.example.musicfy.settings
  * PreferencesCache layer. All key names are preserved in [SettingsKeys] so
  * exported settings stay compatible with the `mochy-transfer` JSON format.
  */
-expect class SettingsStore {
+expect class SettingsStore() {
     fun getBoolean(key: String, default: Boolean): Boolean
     fun getInt(key: String, default: Int): Int
     fun getLong(key: String, default: Long): Long

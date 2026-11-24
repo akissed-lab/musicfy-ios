@@ -143,7 +143,7 @@ CREATE TABLE lyrics (
   provider TEXT NOT NULL DEFAULT 'Unknown',
   translatedLyrics TEXT NOT NULL DEFAULT '',
   translationLanguage TEXT NOT NULL DEFAULT '',
-  translationMode INTEGER NOT NULL DEFAULT 0
+  translationMode TEXT NOT NULL DEFAULT ''
 );
 
 CREATE TABLE event (
@@ -295,7 +295,7 @@ updateDownloaded:
 UPDATE song SET isDownloaded = ?, dateDownload = ? WHERE id = ?;
 
 insertSong:
-INSERT OR REPLACE INTO song(
+INSERT OR IGNORE INTO song(
   id, title, duration, thumbnailUrl, albumId, albumName, explicit, year, date,
   dateModified, liked, likedDate, totalPlayTime, inLibrary, dateDownload, isLocal,
   libraryAddToken, libraryRemoveToken, lyricsOffset, romanizeLyrics, isDownloaded,
@@ -333,7 +333,7 @@ SELECT COUNT(DISTINCT songId) FROM event WHERE timestamp >= ? AND timestamp < ?;
 
 -- Search history
 searchHistory:
-SELECT id, query FROM search_history WHERE query LIKE ? || '%' ORDER BY id DESC LIMIT ?;
+SELECT id, `query` FROM search_history WHERE `query` LIKE ? || '%' ORDER BY id DESC LIMIT ?;
 
 insertSearchHistory:
 INSERT OR REPLACE INTO search_history(query) VALUES (?);
@@ -371,3 +371,443 @@ VALUES (?, ?, ?, ?, ?, ?);
 -- Speed dial (limit enforced in MusicDatabase, MaxPinned = 9)
 speedDialItems:
 SELECT * FROM speed_dial_item ORDER BY createDate DESC LIMIT 9;
+
+-- Single songs and batched song lookups (facade ops 2)
+songById:
+SELECT * FROM song WHERE id = :songId;
+
+songArtistMap:
+SELECT * FROM song_artist_map WHERE songId = :songId ORDER BY position;
+
+songsByIds:
+SELECT * FROM song WHERE id IN :songIds;
+
+-- Sorted library/liked lists (facade op 3). The facade keeps the inLibrary IS NOT NULL
+-- filter in Kotlin so these queries all map to the generated Song row type.
+-- SQLDelight validates identifiers against CREATE TABLE, so use the declared PRIMARY KEY
+-- instead of SQLite's implicit rowid as the stable insertion-order tiebreaker.
+songsByRowIdAsc:
+SELECT * FROM song ORDER BY id;
+
+songsByCreateDateAsc:
+SELECT * FROM song ORDER BY inLibrary, id;
+
+songsByNameAsc:
+SELECT * FROM song ORDER BY title;
+
+songsByPlayTimeAsc:
+SELECT * FROM song ORDER BY totalPlayTime;
+
+likedSongsByRowIdAsc:
+SELECT * FROM song WHERE liked = 1 ORDER BY id;
+
+likedSongsByCreateDateAsc:
+SELECT * FROM song WHERE liked = 1 ORDER BY likedDate;
+
+likedSongsByNameAsc:
+SELECT * FROM song WHERE liked = 1 ORDER BY title;
+
+likedSongsByPlayTimeAsc:
+SELECT * FROM song WHERE liked = 1 ORDER BY totalPlayTime;
+
+-- Album lookups and lists (facade op 4)
+albumById:
+SELECT * FROM album WHERE id = :albumId;
+
+albumsByCreateDateAsc:
+SELECT * FROM album ORDER BY id;
+
+albumsByNameAsc:
+SELECT * FROM album ORDER BY title;
+
+albumsByYearAsc:
+SELECT * FROM album ORDER BY year;
+
+albumsBySongCountAsc:
+SELECT * FROM album ORDER BY songCount;
+
+albumsByLengthAsc:
+SELECT * FROM album ORDER BY duration;
+
+albumsByPlayTimeAsc:
+SELECT album.* FROM album
+JOIN song ON song.albumId = album.id
+GROUP BY album.id
+ORDER BY SUM(song.totalPlayTime);
+
+albumSongs:
+SELECT song.* FROM song
+JOIN song_album_map ON song.id = song_album_map.songId
+WHERE song_album_map.albumId = :albumId
+ORDER BY song_album_map.`index`;
+
+-- Artist lookups and lists (facade op 5)
+artistById:
+SELECT * FROM artist WHERE id = :artistId;
+
+artistByName:
+SELECT * FROM artist WHERE name = :name LIMIT 1;
+
+artistsByCreateDateAsc:
+SELECT * FROM artist ORDER BY id;
+
+artistsByNameAsc:
+SELECT * FROM artist ORDER BY name;
+
+artistsBySongCountAsc:
+SELECT ar.* FROM artist ar
+JOIN (SELECT artistId, COUNT(1) AS songCount FROM song_artist_map GROUP BY artistId) counts
+  ON ar.id = counts.artistId
+ORDER BY counts.songCount;
+
+artistsByPlayTimeAsc:
+SELECT ar.* FROM artist ar
+JOIN (SELECT sam.artistId, SUM(s.totalPlayTime) AS totalPlayTime
+      FROM song_artist_map sam JOIN song s ON s.id = sam.songId
+      GROUP BY sam.artistId) totals ON ar.id = totals.artistId
+ORDER BY totals.totalPlayTime;
+
+artistSongsByCreateDateAsc:
+SELECT song.* FROM song_artist_map sam
+JOIN song ON song.id = sam.songId
+WHERE sam.artistId = :artistId
+ORDER BY song.inLibrary;
+
+artistSongsByNameAsc:
+SELECT song.* FROM song_artist_map sam
+JOIN song ON song.id = sam.songId
+WHERE sam.artistId = :artistId
+ORDER BY song.title;
+
+artistSongsByPlayTimeAsc:
+SELECT song.* FROM song_artist_map sam
+JOIN song ON song.id = sam.songId
+WHERE sam.artistId = :artistId
+ORDER BY song.totalPlayTime;
+
+artistSongsPreview:
+SELECT song.* FROM song_artist_map sam
+JOIN song ON song.id = sam.songId
+WHERE sam.artistId = :artistId
+LIMIT :previewSize;
+
+mostPlayedSongsByArtist:
+SELECT song.* FROM song
+JOIN (SELECT e.songId, SUM(e.playTime) AS totalPlayTime
+      FROM event e
+      JOIN song_artist_map sam ON e.songId = sam.songId
+      WHERE sam.artistId = :artistId
+        AND e.timestamp >= :fromTimestamp AND e.timestamp <= :toTimestamp
+      GROUP BY e.songId
+      ORDER BY totalPlayTime DESC) plays ON song.id = plays.songId
+ORDER BY plays.totalPlayTime DESC;
+
+mostPlayedArtists:
+SELECT ar.*,
+       (SELECT COUNT(1) FROM song_artist_map sam JOIN event e ON sam.songId = e.songId
+        WHERE sam.artistId = ar.id
+          AND e.timestamp >= :fromTimestamp AND e.timestamp <= :toTimestamp) AS songCount,
+       (SELECT SUM(e.playTime) FROM song_artist_map sam JOIN event e ON sam.songId = e.songId
+        WHERE sam.artistId = ar.id
+          AND e.timestamp >= :fromTimestamp AND e.timestamp <= :toTimestamp) AS timeListened
+FROM artist ar
+JOIN (SELECT sam.artistId, SUM(e.playTime) AS totalPlayTime
+      FROM song_artist_map sam JOIN event e ON sam.songId = e.songId
+      WHERE e.timestamp >= :fromTimestamp AND e.timestamp <= :toTimestamp
+      GROUP BY sam.artistId
+      ORDER BY totalPlayTime DESC
+      LIMIT :limit OFFSET :offset) totals ON ar.id = totals.artistId
+ORDER BY totals.totalPlayTime DESC;
+
+-- Playlist lookups and lists (facade op 6)
+playlistById:
+SELECT * FROM playlist WHERE id = :playlistId;
+
+playlistByBrowseId:
+SELECT * FROM playlist WHERE browseId = :browseId;
+
+playlistsByCreateDateAsc:
+SELECT * FROM playlist ORDER BY id;
+
+playlistsByUpdatedDateAsc:
+SELECT * FROM playlist ORDER BY lastUpdateTime;
+
+playlistsByNameAsc:
+SELECT * FROM playlist ORDER BY name;
+
+playlistsBySongCountAsc:
+SELECT pl.* FROM playlist pl
+JOIN (SELECT playlistId, COUNT(1) AS songCount FROM playlist_song_map GROUP BY playlistId) counts
+  ON pl.id = counts.playlistId
+ORDER BY counts.songCount;
+
+playlistSongMaps:
+SELECT * FROM playlist_song_map WHERE playlistId = :playlistId ORDER BY position;
+
+playlistSongMapsBySongId:
+SELECT * FROM playlist_song_map WHERE songId = :songId;
+
+playlistDuplicates:
+SELECT songId FROM playlist_song_map
+WHERE playlistId = :playlistId AND songId IN :songIds;
+
+checkInPlaylist:
+SELECT COUNT(1) FROM playlist_song_map
+WHERE playlistId = :playlistId AND songId = :songId;
+
+playlistIdsContainingSongs:
+SELECT DISTINCT playlistId FROM playlist_song_map WHERE songId IN :songIds;
+
+insertPlaylistSongMap:
+INSERT OR IGNORE INTO playlist_song_map(playlistId, songId, position, setVideoId)
+VALUES (:playlistId, :songId, :position, :setVideoId);
+
+-- Repeated named parameters are deduplicated by SQLDelight, so the generated argument order is
+-- fromPosition, toPosition, playlistId, minPosition, maxPosition.
+movePlaylistSong:
+UPDATE playlist_song_map SET position =
+  CASE
+    WHEN position < :fromPosition THEN position + 1
+    WHEN position > :fromPosition THEN position - 1
+    ELSE :toPosition
+  END
+WHERE playlistId = :playlistId AND position BETWEEN :minPosition AND :maxPosition;
+
+removeAddedSongs:
+DELETE FROM playlist_song_map
+WHERE playlistId = :playlistId AND songId IN :songIds AND position >= :fromPosition;
+
+-- Search (facade op 7)
+searchSongs:
+SELECT * FROM song WHERE title LIKE '%' || :searchQuery || '%' LIMIT :limit;
+
+searchArtists:
+SELECT * FROM artist WHERE name LIKE '%' || :searchQuery || '%' LIMIT :limit;
+
+searchAlbums:
+SELECT * FROM album WHERE title LIKE '%' || :searchQuery || '%' LIMIT :limit;
+
+searchPlaylists:
+SELECT * FROM playlist WHERE name LIKE '%' || :searchQuery || '%' LIMIT :limit;
+
+-- Format, lyrics and set-video-id (facade op 8)
+formatById:
+SELECT * FROM format WHERE id = :id;
+
+lyricsById:
+SELECT * FROM lyrics WHERE id = :id;
+
+setVideoIdByVideoId:
+SELECT * FROM set_video_id WHERE videoId = :videoId;
+
+updateLyricsOffset:
+UPDATE song SET lyricsOffset = :lyricsOffset WHERE id = :songId;
+
+upsertFormat:
+INSERT OR REPLACE INTO format(id, itag, mimeType, codecs, bitrate, sampleRate, contentLength,
+                              loudnessDb, perceptualLoudnessDb, playbackUrl)
+VALUES (:id, :itag, :mimeType, :codecs, :bitrate, :sampleRate, :contentLength,
+        :loudnessDb, :perceptualLoudnessDb, :playbackUrl);
+
+insertSetVideoId:
+INSERT OR REPLACE INTO set_video_id(videoId, setVideoId) VALUES (:videoId, :setVideoId);
+
+-- Events (facade op 9)
+events:
+SELECT * FROM event ORDER BY id DESC;
+
+recentEventsLimited:
+SELECT * FROM event ORDER BY id DESC LIMIT :limit;
+
+firstEvent:
+SELECT * FROM event ORDER BY id ASC LIMIT 1;
+
+eventCount:
+SELECT COUNT(1) FROM event;
+
+firstEventTimestamp:
+SELECT MIN(timestamp) FROM event;
+
+recapEventsRange:
+SELECT songId, timestamp, playTime FROM event
+WHERE timestamp >= :fromTimestamp AND timestamp < :toTimestamp
+ORDER BY timestamp;
+
+recentlyPlayedSongs:
+SELECT song.* FROM song
+JOIN (SELECT songId, MAX(timestamp) AS lastPlayed FROM event GROUP BY songId) plays
+  ON song.id = plays.songId
+ORDER BY plays.lastPlayed DESC
+LIMIT :limit;
+
+mostPlayedSongsInRange:
+SELECT song.* FROM song
+JOIN (SELECT songId, SUM(playTime) AS totalPlayTime
+      FROM event
+      WHERE timestamp >= :fromTimestamp AND timestamp <= :toTimestamp
+      GROUP BY songId
+      ORDER BY totalPlayTime DESC
+      LIMIT :limit OFFSET :offset) plays ON song.id = plays.songId
+ORDER BY plays.totalPlayTime DESC;
+
+-- Relations, batched where possible so a screen of songs costs a fixed number of queries
+songArtists:
+SELECT ar.* FROM song_artist_map sam
+JOIN artist ar ON ar.id = sam.artistId
+WHERE sam.songId = :songId
+ORDER BY sam.position;
+
+songAlbum:
+SELECT al.* FROM song_album_map sm
+JOIN album al ON al.id = sm.albumId
+WHERE sm.songId = :songId
+ORDER BY sm.`index`
+LIMIT 1;
+
+albumArtists:
+SELECT ar.* FROM album_artist_map am
+JOIN artist ar ON ar.id = am.artistId
+WHERE am.albumId = :albumId
+ORDER BY am.`order`;
+
+songArtistsForSongIds:
+SELECT sam.songId AS songId, ar.id, ar.name, ar.thumbnailUrl, ar.channelId,
+       ar.lastUpdateTime, ar.bookmarkedAt, ar.isLocal
+FROM song_artist_map sam
+JOIN artist ar ON ar.id = sam.artistId
+WHERE sam.songId IN :songIds
+ORDER BY sam.songId, sam.position;
+
+songAlbumsForSongIds:
+SELECT sm.songId AS songId, al.id, al.playlistId, al.title, al.year, al.thumbnailUrl,
+       al.themeColor, al.songCount, al.duration, al.explicit, al.lastUpdateTime,
+       al.bookmarkedAt, al.likedDate, al.inLibrary, al.description, al.isLocal, al.isUploaded
+FROM song_album_map sm
+JOIN album al ON al.id = sm.albumId
+WHERE sm.songId IN :songIds
+ORDER BY sm.songId, sm.`index`;
+
+albumArtistsForAlbumIds:
+SELECT am.albumId AS albumId, ar.id, ar.name, ar.thumbnailUrl, ar.channelId,
+       ar.lastUpdateTime, ar.bookmarkedAt, ar.isLocal
+FROM album_artist_map am
+JOIN artist ar ON ar.id = am.artistId
+WHERE am.albumId IN :albumIds
+ORDER BY am.albumId, am.`order`;
+
+formatsByIds:
+SELECT * FROM format WHERE id IN :ids;
+
+artistLibrarySongCounts:
+SELECT sam.artistId AS artistId, COUNT(1) AS songCount
+FROM song_artist_map sam
+JOIN song s ON s.id = sam.songId
+WHERE s.inLibrary IS NOT NULL
+GROUP BY sam.artistId;
+
+libraryAlbumIds:
+SELECT DISTINCT albumId FROM song WHERE albumId IS NOT NULL AND inLibrary IS NOT NULL;
+
+playlistSongCounts:
+SELECT playlistId, COUNT(1) AS songCount
+FROM playlist_song_map
+WHERE playlistId IN :playlistIds
+GROUP BY playlistId;
+
+playlistThumbsForIds:
+SELECT m.playlistId AS playlistId, s.thumbnailUrl AS thumbnailUrl
+FROM playlist_song_map m
+JOIN song s ON s.id = m.songId
+WHERE m.playlistId IN :playlistIds AND m.position <= 3
+ORDER BY m.playlistId, m.position;
+
+-- Entity writes used by the facade (facade op 6 and sync parity)
+insertArtistEntity:
+INSERT OR IGNORE INTO artist(id, name, thumbnailUrl, channelId, lastUpdateTime, bookmarkedAt, isLocal)
+VALUES (:id, :name, :thumbnailUrl, :channelId, :lastUpdateTime, :bookmarkedAt, :isLocal);
+
+insertAlbumEntity:
+INSERT OR IGNORE INTO album(id, playlistId, title, year, thumbnailUrl, themeColor, songCount,
+                            duration, explicit, lastUpdateTime, bookmarkedAt, likedDate,
+                            inLibrary, description, isLocal, isUploaded)
+VALUES (:id, :playlistId, :title, :year, :thumbnailUrl, :themeColor, :songCount,
+        :duration, :explicit, :lastUpdateTime, :bookmarkedAt, :likedDate,
+        :inLibrary, :description, :isLocal, :isUploaded);
+
+insertPlaylistEntity:
+INSERT OR IGNORE INTO playlist(id, name, browseId, createdAt, lastUpdateTime, isEditable,
+                               bookmarkedAt, remoteSongCount, playEndpointParams, thumbnailUrl,
+                               shuffleEndpointParams, radioEndpointParams, isLocal, isAutoSync, description)
+VALUES (:id, :name, :browseId, :createdAt, :lastUpdateTime, :isEditable,
+        :bookmarkedAt, :remoteSongCount, :playEndpointParams, :thumbnailUrl,
+        :shuffleEndpointParams, :radioEndpointParams, :isLocal, :isAutoSync, :description);
+
+insertSongArtistMap:
+INSERT OR IGNORE INTO song_artist_map(songId, artistId, position)
+VALUES (:songId, :artistId, :position);
+
+insertSongAlbumMap:
+INSERT OR IGNORE INTO song_album_map(songId, albumId, `index`)
+VALUES (:songId, :albumId, :albumIndex);
+
+insertAlbumArtistMap:
+INSERT OR IGNORE INTO album_artist_map(albumId, artistId, `order`)
+VALUES (:albumId, :artistId, :artistOrder);
+
+-- Upstream @Upsert(song) parity without REPLACE: updating in place keeps FK relation rows.
+upsertSong:
+INSERT INTO song(
+  id, title, duration, thumbnailUrl, albumId, albumName, explicit, year, date,
+  dateModified, liked, likedDate, totalPlayTime, inLibrary, dateDownload, isLocal,
+  libraryAddToken, libraryRemoveToken, lyricsOffset, romanizeLyrics, isDownloaded,
+  isUploaded, isVideo, localUri
+) VALUES (
+  :id, :title, :duration, :thumbnailUrl, :albumId, :albumName, :explicit, :year, :date,
+  :dateModified, :liked, :likedDate, :totalPlayTime, :inLibrary, :dateDownload, :isLocal,
+  :libraryAddToken, :libraryRemoveToken, :lyricsOffset, :romanizeLyrics, :isDownloaded,
+  :isUploaded, :isVideo, :localUri
+)
+ON CONFLICT(id) DO UPDATE SET
+  title = excluded.title,
+  duration = excluded.duration,
+  thumbnailUrl = excluded.thumbnailUrl,
+  albumId = excluded.albumId,
+  albumName = excluded.albumName,
+  explicit = excluded.explicit,
+  year = excluded.year,
+  date = excluded.date,
+  dateModified = excluded.dateModified,
+  liked = excluded.liked,
+  likedDate = excluded.likedDate,
+  totalPlayTime = excluded.totalPlayTime,
+  inLibrary = excluded.inLibrary,
+  dateDownload = excluded.dateDownload,
+  isLocal = excluded.isLocal,
+  libraryAddToken = excluded.libraryAddToken,
+  libraryRemoveToken = excluded.libraryRemoveToken,
+  lyricsOffset = excluded.lyricsOffset,
+  romanizeLyrics = excluded.romanizeLyrics,
+  isDownloaded = excluded.isDownloaded,
+  isUploaded = excluded.isUploaded,
+  isVideo = excluded.isVideo,
+  localUri = excluded.localUri;
+
+-- Speed dial CRUD (facade op 10)
+speedDialItemsOrdered:
+SELECT * FROM speed_dial_item ORDER BY createDate DESC;
+
+oldestSpeedDialItem:
+SELECT * FROM speed_dial_item ORDER BY createDate ASC LIMIT 1;
+
+countSpeedDialItems:
+SELECT COUNT(1) FROM speed_dial_item;
+
+isSpeedDialPinned:
+SELECT EXISTS(SELECT 1 FROM speed_dial_item WHERE id = :id);
+
+insertSpeedDialItem:
+INSERT OR REPLACE INTO speed_dial_item(id, secondaryId, title, subtitle, thumbnailUrl, type, explicit, createDate)
+VALUES (:id, :secondaryId, :title, :subtitle, :thumbnailUrl, :type, :explicit, :createDate);
+
+deleteSpeedDialItem:
+DELETE FROM speed_dial_item WHERE id = :id;

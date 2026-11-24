@@ -2,7 +2,7 @@ package com.example.musicfy.db
 
 import app.cash.sqldelight.driver.native.NativeSqliteDriver
 
-actual class DatabaseDriverFactory {
+actual class DatabaseDriverFactory actual constructor() {
     actual fun createDriver(): app.cash.sqldelight.db.SqlDriver =
         NativeSqliteDriver(MusicDatabase.Schema, DATABASE_FILE_NAME).apply {
             execute(null, "PRAGMA foreign_keys = ON", 0)
