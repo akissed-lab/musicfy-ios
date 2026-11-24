@@ -24,7 +24,7 @@ concurrency:
 jobs:
   build:
     name: Kotlin framework + Xcode archive + IPA
-    runs-on: macos-15
+    runs-on: macos-15-intel
     timeout-minutes: 90
     env:
       SIGNING_CERT_P12: ${{ secrets.SIGNING_CERT_P12 }}
