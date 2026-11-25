@@ -19,12 +19,31 @@ internal data class SettingsEntry(
 }
 
 /**
- * Local stand-in for upstream `SettingsHighlight` until the shared settings
- * component lands. Nothing consumes it yet; the value is kept so the
- * recommended rows can be wired without another round of edits.
+ * Legacy stand-in for upstream `SettingsHighlight`. Kept for source
+ * compatibility; the settings screen now writes [com.example.musicfy.ui.component.SettingsHighlight.pending],
+ * which is the instance the shared settings rows actually claim.
  */
 internal object SettingsPendingHighlight {
     var key: String? = null
+}
+
+/**
+ * The three app-wide font modes that map cleanly onto Compose Multiplatform.
+ * Enum names are persisted verbatim, so the only values ever written to
+ * `SettingsKeys.CustomFontModeKey` are DEFAULT / SYSTEM / MONOSPACE.
+ *
+ * This is deliberately local to the settings UI: the theme layer reads the
+ * same key and resolves it independently.
+ */
+internal enum class SettingsFontMode {
+    DEFAULT,
+    SYSTEM,
+    MONOSPACE;
+
+    companion object {
+        fun fromStoredValue(value: String?): SettingsFontMode =
+            entries.firstOrNull { it.name == value } ?: DEFAULT
+    }
 }
 
 internal val SettingsIndex = listOf(
@@ -39,6 +58,12 @@ internal val SettingsIndex = listOf(
     SettingsEntry("Show sample rate", "Appearance", Routes.APPEARANCE_SETTINGS, "sample rate khz hz format badge quality"),
     SettingsEntry("Blur", "Appearance", Routes.APPEARANCE_SETTINGS, "blur glass performance lag strength"),
     SettingsEntry("Animation", "Appearance", Routes.APPEARANCE_SETTINGS, "element blur animator transition animation"),
+    SettingsEntry(
+        "Custom font",
+        "Appearance",
+        Routes.APPEARANCE_SETTINGS,
+        "font typeface custom system monospace ttf otf default global text",
+    ),
 
     // Gesture
     SettingsEntry("Gesture", "Gesture", Routes.GESTURE_SETTINGS, "swipe slide song list left right queue library add remove"),
@@ -100,6 +125,21 @@ internal val SettingsIndex = listOf(
     SettingsEntry("Show where songs play from", "Experimental", Routes.EXPERIMENTAL_SETTINGS, "source banner toast apple music monochrome youtube"),
     SettingsEntry("Force playback", "Experimental", Routes.EXPERIMENTAL_SETTINGS, "fallback skip error stream failed youtube"),
 )
+
+/**
+ * KMP equivalent of upstream `searchSettings(context, query)`. Titles, section
+ * names and keywords are matched case-insensitively; the English ids stay
+ * stable while the visible labels come from localized resources where present.
+ */
+internal fun searchSettings(query: String): List<SettingsEntry> {
+    val q = query.trim()
+    if (q.isBlank()) return emptyList()
+    return SettingsIndex.filter { entry ->
+        entry.title.contains(q, ignoreCase = true) ||
+            entry.page.contains(q, ignoreCase = true) ||
+            entry.keywords.contains(q, ignoreCase = true)
+    }
+}
 
 internal data class RecommendedSetting(
     val title: String,

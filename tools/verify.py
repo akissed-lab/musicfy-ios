@@ -1,7 +1,10 @@
 #!/usr/bin/env python3
-"""Static verification and port-progress report for the Musicfy iOS port.
+"""Static verification and port-progress report for the Mochy Music iOS port.
 
-Runs on any platform; no Xcode required. It does not replace a real build.
+Runs on any platform; no Xcode, Gradle or network required. It does not replace
+a real build. The denominator is whatever local `reference/` snapshot is
+present (currently the legacy `musicfy` db2b3d1 tree), not the live upstream;
+provenance and the refresh policy are documented in docs/10-upstream-policy.md.
 """
 
 from __future__ import annotations
@@ -107,6 +110,8 @@ def write_report(root: Path, ported: int, reference: int, warnings: list[str]) -
         "# Port status",
         "",
         f"- Reference Kotlin files: **{reference}**",
+        "- Reference snapshot: local `reference/` tree (baseline-only until refreshed; "
+        "see `docs/10-upstream-policy.md`)",
         f"- Kotlin files in `composeApp`: **{ported}** ({percent:.1f}% by file count)",
         "",
         "File count is a coarse metric: it does not account for file size or",

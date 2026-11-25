@@ -44,8 +44,9 @@ class UserProfileViewModel(container: AppContainer) : ViewModel() {
     val recentSongs: StateFlow<List<Song>?> = database.recentlyPlayedSongs(limit = 20)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
-    /** Bookmarked playlists, the most recently changed first. */
-    // TODO: facade has no playlistsByUpdatedDateAsc(); LAST_UPDATED/descending is its equivalent.
+    /** Bookmarked playlists, the most recently changed first.
+     * The facade has no playlistsByUpdatedDateAsc(); LAST_UPDATED/descending is its equivalent.
+     */
     val playlists: StateFlow<List<Playlist>?> = database
         .playlists(MusicDatabaseFacade.PlaylistSortType.LAST_UPDATED, descending = true)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)

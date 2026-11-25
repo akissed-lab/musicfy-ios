@@ -10,6 +10,8 @@ import com.example.musicfy.settings.SettingsKeys
 import com.example.musicfy.settings.toEnum
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.stateIn
@@ -18,28 +20,55 @@ import kotlinx.coroutines.flow.stateIn
  * KMP port of upstream `PlaylistsViewModel`. SettingsStore is synchronous, so the two sort
  * preferences are snapshotted into flows; call [refreshSettings] after a settings screen writes
  * them. Syncing needs the unported `SyncUtils`, so [sync] is a no-op for now.
+ *
+ * Sort changes go through [selectSortType] / [setSortDescending] so they are both reflected in
+ * [allPlaylists] and persisted. As in upstream PR #368, selecting CREATE_DATE resets the
+ * direction to descending; [toggleSortDirection] is the only implicit direction flip.
  */
 class PlaylistsViewModel(container: AppContainer) : ViewModel() {
     private val database: MusicDatabaseFacade = container.database
     private val settings = container.settings
 
-    private val sortType = MutableStateFlow(
+    private val _sortType = MutableStateFlow(
         settings.getString(SettingsKeys.AddToPlaylistSortTypeKey, PlaylistSortType.CREATE_DATE.name)
             .toEnum(PlaylistSortType.CREATE_DATE),
     )
-    private val descending = MutableStateFlow(
+    private val _descending = MutableStateFlow(
         settings.getBoolean(SettingsKeys.AddToPlaylistSortDescendingKey, true),
     )
 
+    val selectedSortType: StateFlow<PlaylistSortType> = _sortType.asStateFlow()
+    val sortDescending: StateFlow<Boolean> = _descending.asStateFlow()
+
     fun refreshSettings() {
-        sortType.value = settings.getString(
+        _sortType.value = settings.getString(
             SettingsKeys.AddToPlaylistSortTypeKey,
             PlaylistSortType.CREATE_DATE.name,
         ).toEnum(PlaylistSortType.CREATE_DATE)
-        descending.value = settings.getBoolean(SettingsKeys.AddToPlaylistSortDescendingKey, true)
+        _descending.value = settings.getBoolean(SettingsKeys.AddToPlaylistSortDescendingKey, true)
     }
 
-    val allPlaylists = combine(sortType, descending) { type, desc -> type to desc }
+    /**
+     * Port of upstream's `selectSortType`: date sorting starts newest-first, but a later
+     * [setSortDescending] call can still switch it to ascending.
+     */
+    fun selectSortType(type: PlaylistSortType) {
+        _sortType.value = type
+        settings.setString(SettingsKeys.AddToPlaylistSortTypeKey, type.name)
+        if (type == PlaylistSortType.CREATE_DATE) setSortDescending(true)
+    }
+
+    /** Explicit direction control; selection of a sort type never toggles this by itself. */
+    fun toggleSortDirection() {
+        setSortDescending(!_descending.value)
+    }
+
+    fun setSortDescending(descending: Boolean) {
+        _descending.value = descending
+        settings.setBoolean(SettingsKeys.AddToPlaylistSortDescendingKey, descending)
+    }
+
+    val allPlaylists = combine(_sortType, _descending) { type, desc -> type to desc }
         .flatMapLatest { (type, desc) -> database.playlists(type.toFacadeSort(), desc) }
         .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
 

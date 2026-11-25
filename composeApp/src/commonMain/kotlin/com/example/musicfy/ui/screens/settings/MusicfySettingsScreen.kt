@@ -48,6 +48,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavHostController
 import coil3.compose.AsyncImage
+import com.example.musicfy.constants.SettingsDefaults
 import com.example.musicfy.resources.Res
 import com.example.musicfy.resources.cached
 import com.example.musicfy.resources.close
@@ -58,11 +59,20 @@ import com.example.musicfy.resources.person
 import com.example.musicfy.resources.play
 import com.example.musicfy.resources.settings
 import com.example.musicfy.resources.settings_outline
+import com.example.musicfy.resources.settings_custom_font_default
+import com.example.musicfy.resources.settings_custom_font_description
+import com.example.musicfy.resources.settings_custom_font_monospace
+import com.example.musicfy.resources.settings_custom_font_system
+import com.example.musicfy.resources.settings_custom_font_title
+import com.example.musicfy.resources.settings_search_clear
+import com.example.musicfy.resources.settings_search_no_results
+import com.example.musicfy.resources.settings_search_placeholder
 import com.example.musicfy.settings.SettingsKeys
 import com.example.musicfy.settings.rememberPreference
 import com.example.musicfy.ui.component.GlassCard
 import com.example.musicfy.ui.component.GlassStyle
 import com.example.musicfy.ui.component.LocalGlassState
+import com.example.musicfy.ui.component.SettingsHighlight
 import com.example.musicfy.ui.component.glassSurface
 import com.example.musicfy.ui.component.navigateToTab
 import com.example.musicfy.ui.screens.Routes
@@ -70,6 +80,7 @@ import com.example.musicfy.ui.screens.Screens
 import com.example.musicfy.ui.theme.interFontFamily
 import org.jetbrains.compose.resources.DrawableResource
 import org.jetbrains.compose.resources.painterResource
+import org.jetbrains.compose.resources.stringResource
 
 private val SettingsTopBarHeight = 78.dp
 
@@ -101,18 +112,7 @@ fun MusicfySettingsScreen(navController: NavHostController) {
 
     val recommendedItem = remember { RecommendedOptions.random() }
 
-    val results = remember(query.text) {
-        val q = query.text.trim()
-        if (q.isBlank()) {
-            emptyList()
-        } else {
-            SettingsIndex.filter {
-                it.title.contains(q, ignoreCase = true) ||
-                    it.keywords.contains(q, ignoreCase = true) ||
-                    it.page.contains(q, ignoreCase = true)
-            }
-        }
-    }
+    val results = remember(query.text) { searchSettings(query.text) }
 
     // Content fades while the search field is active, as on Android.
     val contentAlpha by animateFloatAsState(
@@ -158,7 +158,7 @@ fun MusicfySettingsScreen(navController: NavHostController) {
                 ) {
                     if (results.isEmpty()) {
                         Text(
-                            text = "Nothing matches \"${query.text}\".",
+                            text = stringResource(Res.string.settings_search_no_results, query.text),
                             fontFamily = fontFamily,
                             fontSize = 15.sp,
                             color = Color.White.copy(alpha = 0.6f),
@@ -171,7 +171,7 @@ fun MusicfySettingsScreen(navController: NavHostController) {
                                     .fillMaxWidth()
                                     .glassSurface(shape = RoundedCornerShape(18.dp), style = cardStyle)
                                     .clickable {
-                                        SettingsPendingHighlight.key = entry.highlightKey
+                                        SettingsHighlight.pending = entry.highlightKey
                                         navController.navigate(entry.route)
                                     }
                                     .padding(horizontal = 14.dp, vertical = 12.dp),
@@ -225,7 +225,7 @@ fun MusicfySettingsScreen(navController: NavHostController) {
                             .fillMaxWidth()
                             .padding(horizontal = 16.dp)
                             .clickable {
-                                SettingsPendingHighlight.key = recommendedItem.highlightKey
+                                SettingsHighlight.pending = recommendedItem.highlightKey
                                 recommendedItem.onClick(navController)
                             },
                         style = cardStyle,
@@ -288,6 +288,10 @@ fun MusicfySettingsScreen(navController: NavHostController) {
                             .height(0.8.dp)
                             .background(Color.White.copy(alpha = 0.10f)),
                     )
+
+                    Spacer(modifier = Modifier.height(18.dp))
+
+                    CustomFontPreferenceCard()
 
                     Spacer(modifier = Modifier.height(18.dp))
 
@@ -441,6 +445,97 @@ internal fun CategoryBubble(
 }
 
 /**
+ * Small app-wide font selector. The enum name is written to
+ * [SettingsKeys.CustomFontModeKey], so the only stored values are
+ * DEFAULT / SYSTEM / MONOSPACE and the theme layer can read the same key.
+ */
+@Composable
+internal fun CustomFontPreferenceCard(modifier: Modifier = Modifier) {
+    val glassState = LocalGlassState.current
+    val fontFamily = interFontFamily()
+    val (storedMode, setStoredMode) = rememberPreference(
+        key = SettingsKeys.CustomFontModeKey,
+        defaultValue = SettingsDefaults.CustomFontMode,
+    )
+    val currentMode = SettingsFontMode.fromStoredValue(storedMode)
+    val options = listOf(
+        SettingsFontMode.DEFAULT to stringResource(Res.string.settings_custom_font_default),
+        SettingsFontMode.SYSTEM to stringResource(Res.string.settings_custom_font_system),
+        SettingsFontMode.MONOSPACE to stringResource(Res.string.settings_custom_font_monospace),
+    )
+
+    GlassCard(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp),
+        style = GlassStyle(
+            containerColor = glassState.accent.copy(alpha = 0.12f),
+            borderColor = Color.White.copy(alpha = 0.14f),
+            highlightColor = Color.White.copy(alpha = 0.10f),
+            cornerRadius = 22.dp,
+            elevation = 12.dp,
+        ),
+    ) {
+        Text(
+            text = stringResource(Res.string.settings_custom_font_title),
+            fontFamily = fontFamily,
+            fontWeight = FontWeight.SemiBold,
+            fontSize = 16.sp,
+            color = Color.White,
+        )
+        Spacer(modifier = Modifier.height(4.dp))
+        Text(
+            text = stringResource(Res.string.settings_custom_font_description),
+            fontFamily = fontFamily,
+            fontSize = 13.sp,
+            color = Color.White.copy(alpha = 0.55f),
+        )
+        Spacer(modifier = Modifier.height(14.dp))
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            options.forEach { (mode, label) ->
+                val selected = mode == currentMode
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .glassSurface(
+                            shape = RoundedCornerShape(16.dp),
+                            style = GlassStyle(
+                                containerColor = if (selected) {
+                                    glassState.accent.copy(alpha = 0.24f)
+                                } else {
+                                    Color.White.copy(alpha = 0.06f)
+                                },
+                                borderColor = if (selected) {
+                                    glassState.accent
+                                } else {
+                                    Color.White.copy(alpha = 0.12f)
+                                },
+                                highlightColor = Color.White.copy(alpha = 0.06f),
+                                cornerRadius = 16.dp,
+                                elevation = 0.dp,
+                            ),
+                        )
+                        .clickable { setStoredMode(mode.name) }
+                        .padding(vertical = 10.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(
+                        text = label,
+                        fontFamily = fontFamily,
+                        fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
+                        fontSize = 13.sp,
+                        color = Color.White,
+                    )
+                }
+            }
+        }
+    }
+}
+
+/**
  * Self-contained glass top bar. TODO(search-design): swap this whole
  * composable for the shared `SearchGlassTopBar` when it is available.
  */
@@ -520,7 +615,7 @@ private fun SettingsGlassTopBar(
                 ) {
                     if (query.text.isEmpty()) {
                         Text(
-                            text = "Search any settings",
+                            text = stringResource(Res.string.settings_search_placeholder),
                             fontFamily = fontFamily,
                             fontSize = 14.sp,
                             color = Color.White.copy(alpha = 0.5f),
@@ -535,7 +630,7 @@ private fun SettingsGlassTopBar(
             Spacer(modifier = Modifier.width(6.dp))
             Icon(
                 painter = painterResource(Res.drawable.close),
-                contentDescription = "Clear search",
+                contentDescription = stringResource(Res.string.settings_search_clear),
                 tint = Color.White.copy(alpha = 0.7f),
                 modifier = Modifier
                     .size(18.dp)

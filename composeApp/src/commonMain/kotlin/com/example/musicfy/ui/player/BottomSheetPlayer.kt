@@ -23,6 +23,9 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -64,6 +67,9 @@ import com.example.musicfy.ui.player.models.PlayerPage
 import com.example.musicfy.ui.player.models.PlayerSheetState
 import com.example.musicfy.ui.player.models.rememberCardMorphState
 import com.example.musicfy.ui.player.models.rememberLikeBurstState
+import com.example.musicfy.ui.player.songinfo.SongInfoDetails
+import com.example.musicfy.ui.player.songinfo.SongInfoSheet
+import com.example.musicfy.ui.player.songinfo.from
 import com.example.musicfy.ui.player.styles.PlayerStyleKit
 import com.example.musicfy.ui.utils.stableSystemBars
 import org.jetbrains.compose.resources.painterResource
@@ -121,6 +127,7 @@ private fun PlayerSheet(
     val handleState = rememberPlayerHandleState()
     val morph = rememberCardMorphState()
     val likeBurst = rememberLikeBurstState()
+    var showSongInfo by remember { mutableStateOf(false) }
     val insets = WindowInsets.stableSystemBars.asPaddingValues()
     val scrim = if (pureBlack) Color.Black else GlassTokens.Base
 
@@ -243,6 +250,7 @@ private fun PlayerSheet(
                     errorMessage = player.error?.message,
                     onOpenPage = { page -> sheetState.openPage(page) },
                     sheetProgress = { sheetState.progress },
+                    onSongInfoClick = { showSongInfo = true },
                     modifier = Modifier.weight(1f),
                 )
 
@@ -263,6 +271,13 @@ private fun PlayerSheet(
                 )
             }
         }
+
+        if (showSongInfo) {
+            SongInfoSheet(
+                details = SongInfoDetails.from(track),
+                onDismiss = { showSongInfo = false },
+            )
+        }
     }
 }
 
@@ -274,6 +289,7 @@ private fun PlayerPageContent(
     errorMessage: String?,
     onOpenPage: (PlayerPage) -> Unit,
     sheetProgress: () -> Float,
+    onSongInfoClick: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     Column(
@@ -303,7 +319,7 @@ private fun PlayerPageContent(
         }
 
         Spacer(Modifier.height(14.dp))
-        PlayerControls()
+        PlayerControls(onSongInfoClick = onSongInfoClick)
         Spacer(Modifier.height(12.dp))
 
         PlayerVolumeBar(

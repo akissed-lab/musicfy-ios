@@ -42,6 +42,7 @@ import com.example.musicfy.ui.player.BottomSheetPlayer
 import com.example.musicfy.ui.player.models.rememberPlayerSheetState
 import com.example.musicfy.ui.screens.Routes
 import com.example.musicfy.ui.screens.Screens
+import com.example.musicfy.ui.screens.modules.ModuleSheetHost
 import com.example.musicfy.ui.screens.navigationBuilder
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
@@ -102,6 +103,8 @@ fun AppNavHost() {
             navController = navController,
             modifier = Modifier.align(Alignment.BottomCenter),
         )
+
+        ModuleSheetHost()
     }
 }
 

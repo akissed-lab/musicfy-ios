@@ -1,5 +1,10 @@
 # Porting roadmap
 
+Source of truth: Mochy Music `main` @ `e6a17d2eb9f48b503fe07e35049cb522b8486db2`
+(release `mochy-8.5.0.0` RC1). The `realidkroo/musicfy` `db2b3d1` (8.1.2) tree
+is the historical baseline: the rename covers 646 commits / ~300 changed files.
+See `docs/10-upstream-policy.md`.
+
 Status legend: `[ ]` not started, `[~]` in progress, `[x]` done for the stage
 (base scaffolding only; a macOS build is still required to validate).
 
@@ -30,6 +35,8 @@ A real iOS build, signing and `.ipa` still require macOS/Xcode.
 ## Stage 0 — Recon and project setup
 
 - [x] Verify release tag contents and locate actual sources (`main`).
+- [x] Re-anchor source of truth to Mochy Music `main` @ `e6a17d2…`
+      (`mochy-8.5.0.0` RC1); keep `db2b3d1` as historical reference only.
 - [x] Analyse architecture, data, UI/player and providers.
 - [x] Copy GPL-3.0 license and reference sources.
 - [x] Set up KMP/CMP Gradle project + Xcode host (Swift only as bootstrap).
@@ -106,9 +113,10 @@ A real iOS build, signing and `.ipa` still require macOS/Xcode.
   one used by Compose 1.12.2. Gradle selects the newer Compose version and the
   compatibility checker reports a warning. Revisit when Coil publishes a
   version built against Kotlin 2.3.x.
-- All 1,206 upstream string/plural resources are copied verbatim into
-  `composeResources/values` via `tools/copy_strings.py`.
+- All 1,206 string/plural resources from the legacy `db2b3d1` snapshot are
+  copied into `composeResources/values` via `tools/copy_strings.py`; re-run the
+  copy after refreshing to Mochy Music `main`.
 
-This is a multi-stage port of ~186k lines. Static checks on Windows do not
-replace compilation; each stage is only truly complete after a successful
-build on macOS.
+This is a multi-stage port of ~186k lines (legacy baseline measurement).
+Static checks on Windows do not replace compilation; each stage is only truly
+complete after a successful build on macOS.

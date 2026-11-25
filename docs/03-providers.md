@@ -1,8 +1,12 @@
 # Provider layer mapping
 
-Source of truth: Android `providers/*` and `modules/{api,applemusic,monochrome}`
-on branch `main`. Target: `composeApp/src/commonMain/kotlin` in the KMP app —
-the Kotlin/Compose code is the port; Swift is only the Xcode entry point.
+Source of truth: `providers/*` and `modules/{api,applemusic,monochrome}` in
+[`realidkroo/Mochy-Music`](https://github.com/realidkroo/Mochy-Music), branch
+`main` @ `e6a17d2eb9f48b503fe07e35049cb522b8486db2` (release `mochy-8.5.0.0`
+RC1). The local `reference/` tree is still the legacy `musicfy` `db2b3d1`
+snapshot; module/provider counts from it are baseline-only. Target:
+`composeApp/src/commonMain/kotlin` in the KMP app — the Kotlin/Compose code is
+the port; Swift is only the Xcode entry point.
 
 Android used OkHttp/Ktor + kotlinx.serialization; the port keeps Ktor with the
 Darwin engine via `createPlatformHttpClient()` and kotlinx.serialization.

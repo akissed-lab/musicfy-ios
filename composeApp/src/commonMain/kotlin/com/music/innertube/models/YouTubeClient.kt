@@ -116,3 +116,6 @@ data class BrowseEndpoint(val browseId: String, val params: String? = null)
 data class NextResult(val lyricsEndpoint: BrowseEndpoint?)
 
 const val MUSIC_VIDEO_TYPE_ATV = "MUSIC_VIDEO_TYPE_ATV"
+
+/** Official music video, as opposed to an audio track ([MUSIC_VIDEO_TYPE_ATV]). */
+const val MUSIC_VIDEO_TYPE_OMV = "MUSIC_VIDEO_TYPE_OMV"

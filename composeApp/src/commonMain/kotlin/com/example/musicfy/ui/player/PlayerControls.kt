@@ -44,9 +44,13 @@ import org.jetbrains.compose.resources.stringResource
 fun PlayerControls(
     modifier: Modifier = Modifier,
     onTitlePositioned: (Rect) -> Unit = {},
+    onSongInfoClick: (() -> Unit)? = null,
 ) {
     Column(modifier = modifier.fillMaxWidth()) {
-        SongInfoRow(onTitlePositioned = onTitlePositioned)
+        SongInfoRow(
+            onTitlePositioned = onTitlePositioned,
+            onSongInfoClick = onSongInfoClick,
+        )
         Spacer(Modifier.height(12.dp))
         PlayerProgressSlider()
         Spacer(Modifier.height(20.dp))

@@ -14,7 +14,13 @@
 
 ## Source analysis summary
 
-- 837 reference Kotlin files, ~186k lines total.
+Source of truth is Mochy Music `main` at `e6a17d2…` (release `mochy-8.5.0.0`
+RC1). The figures below were measured on the local `reference/` snapshot, which
+is still the legacy `musicfy` `db2b3d1` baseline (8.1.2); the rename spans 646
+commits / ~300 changed files, so re-measure after refreshing the snapshot. See
+`docs/10-upstream-policy.md`.
+
+- 837 reference Kotlin files, ~186k lines total (legacy baseline).
 - `app` UI: 377 files / ~113.8k lines (67% of the Android codebase).
 - Largest subsystems: `ui/screens` 49.4k, `ui/player` 31.4k, `ui/component` 23.7k,
   `playback` 10.7k, `viewmodels` 7.6k, `db` 3.9k.
@@ -39,8 +45,8 @@ Room's `fallbackToDestructiveMigration` is **not** copied blindly: SQLDelight
 requires explicit migrations, and `PRAGMA user_version = 41` is set on first
 open so the transfer manifest stays compatible.
 
-`SettingsKeys.kt` is generated from upstream `PreferenceKeys.kt` (322 keys),
-and `SettingsStore` exposes typed accessors plus a typed snapshot compatible
+`SettingsKeys.kt` was generated from the legacy snapshot's `PreferenceKeys.kt`
+(322 keys); `SettingsStore` exposes typed accessors plus a typed snapshot compatible
 with the `mochy-transfer` `settings/settings.json` format. Login tokens are
 excluded from export, matching upstream `TransferArchive.LoginKeys`.
 

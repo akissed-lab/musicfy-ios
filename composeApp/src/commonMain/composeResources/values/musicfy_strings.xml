@@ -943,4 +943,16 @@
     <string name="all_time_hits">All Time Hits</string>
     <string name="most_played_genre">Most played %1$s</string>
     <string name="add_music">Add Music</string>
+
+    <!-- Settings search (ported from upstream SettingsCatalog) -->
+    <string name="settings_search_placeholder">Search any settings</string>
+    <string name="settings_search_no_results">Nothing matches \"%1$s\".</string>
+    <string name="settings_search_clear">Clear search</string>
+
+    <!-- App-wide font mode selector -->
+    <string name="settings_custom_font_title">Custom font</string>
+    <string name="settings_custom_font_description">Choose the typeface used across the app</string>
+    <string name="settings_custom_font_default">Default</string>
+    <string name="settings_custom_font_system">System</string>
+    <string name="settings_custom_font_monospace">Monospace</string>
 </resources>

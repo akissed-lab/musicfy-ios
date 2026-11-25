@@ -12,11 +12,13 @@ import io.ktor.client.request.get
  * A failed probe is treated as "offline"; provider errors are still caught.
  */
 class NetworkConnectivityObserver {
-    private val probeClient = createPlatformHttpClient().config {
-        expectSuccess = true
-        install(HttpTimeout) {
-            connectTimeoutMillis = 2_000
-            requestTimeoutMillis = 3_000
+    private val probeClient by lazy {
+        createPlatformHttpClient().config {
+            expectSuccess = true
+            install(HttpTimeout) {
+                connectTimeoutMillis = 2_000
+                requestTimeoutMillis = 3_000
+            }
         }
     }
 

@@ -325,6 +325,8 @@ object SettingsKeys {
     const val DonatePromptWindowStartKey = "donatePromptWindowStart"
     const val DonatePromptSlotsKey = "donatePromptSlots"
     const val LyricsCacheWipeKey = "lyricsCacheWipe"
+    // App-wide font mode. Stored as an enum name: DEFAULT / SYSTEM / MONOSPACE.
+    const val CustomFontModeKey = "customFontMode"
 
     val AllKeys = listOf(
         "isFirstRun",
@@ -648,6 +650,7 @@ object SettingsKeys {
         "donatePromptWindowStart",
         "donatePromptSlots",
         "lyricsCacheWipe",
+        "customFontMode",
     )
 
     val KeyTypes = mapOf(
@@ -972,5 +975,6 @@ object SettingsKeys {
         "donatePromptWindowStart" to "l",
         "donatePromptSlots" to "s",
         "lyricsCacheWipe" to "i",
+        "customFontMode" to "s",
     )
 }

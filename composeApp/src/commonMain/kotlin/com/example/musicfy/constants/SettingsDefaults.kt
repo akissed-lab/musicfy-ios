@@ -36,6 +36,9 @@ object SettingsDefaults {
     const val BlurStrengthPxDefault = 25f
     const val DensityScaleDefault = 1.0f
 
+    /** App-wide font mode. The only other accepted values are SYSTEM and MONOSPACE. */
+    const val CustomFontMode = "DEFAULT"
+
     // scrobbling (ScrobbleTimer defaults)
     const val ScrobbleDelayPercentDefault = 0.5f
     const val ScrobbleMinSongDurationDefault = 30

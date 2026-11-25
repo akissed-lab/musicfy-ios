@@ -21,6 +21,9 @@ import org.jetbrains.compose.resources.Font
  * Ported from Android `ui/theme/Type.kt`. Inter weights come from
  * composeResources/font; sizes and line heights stay compatible with the
  * original scale while weights and tracking now follow role-specific rules.
+ *
+ * Kept as-is for direct `Text` call sites; [AppTypography] now resolves the
+ * family through [rememberAppFontFamily] instead.
  */
 @Composable
 fun interFontFamily(): FontFamily = FontFamily(
@@ -41,8 +44,11 @@ private const val BodyTracking = -0.01f
 private const val CaptionTracking = 0.015f
 
 @Composable
-fun AppTypography(): Typography {
-    val fontFamily = interFontFamily()
+fun AppTypography(): Typography = AppTypography(rememberAppFontFamily())
+
+/** All Material text styles use [fontFamily]; sizes, weights and tracking are unchanged. */
+@Composable
+fun AppTypography(fontFamily: FontFamily): Typography {
     fun style(size: Int, lineHeight: Int, weight: FontWeight, tracking: Float) = TextStyle(
         fontFamily = fontFamily,
         fontWeight = weight,

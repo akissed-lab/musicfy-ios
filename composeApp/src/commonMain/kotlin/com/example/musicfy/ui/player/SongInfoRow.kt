@@ -66,6 +66,10 @@ import org.jetbrains.compose.resources.painterResource
  *
  * Editor-only layout hooks are kept as optional parameters, but the Android-only artwork palette
  * and animated-vector icons are replaced with the shared glass accent and ordinary drawables.
+ *
+ * [onSongInfoClick] is the hook for the portable `SongInfoSheet` in `ui.player.songinfo`:
+ * pass a state setter from the player and host the sheet above it. The row itself stays
+ * a dumb, self-contained title/artist row.
  */
 @Composable
 fun SongInfoRow(

@@ -3,11 +3,13 @@
 // KMP port. The Android original used AGSL/RenderEffect for the karaoke bloom;
 // none of that exists outside Android. This keeps the public surface and the
 // look (a bright swept head, a soft accent halo, glass-friendly translucent
-// readings) with plain Compose drawing primitives.
+// readings) with plain Compose drawing primitives. Word timings add a short
+// per-word pop without changing the measured line or its line-level motion.
 
 package com.example.musicfy.ui.player
 
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
@@ -42,9 +44,15 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.ClipOp
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorProducer
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.drawscope.clipPath
+import androidx.compose.ui.graphics.drawscope.clipRect
+import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.text.AnnotatedString
@@ -67,7 +75,12 @@ import com.example.musicfy.constants.LyricsMotionStyle
 import com.example.musicfy.lyrics.LyricsEntry
 import com.example.musicfy.lyrics.RubyToken
 import com.example.musicfy.lyrics.WordTimestamp
+import com.example.musicfy.ui.player.lyrics.LyricLineWords
+import com.example.musicfy.ui.player.lyrics.SungWordProgress
+import com.example.musicfy.ui.player.lyrics.activeSungWord
+import com.example.musicfy.ui.player.lyrics.lyricLineWords
 import kotlin.math.abs
+import kotlin.math.max
 import kotlin.math.roundToInt
 
 enum class LyricsLineState { ACTIVE, UPCOMING, PAST, DEFAULT }
@@ -141,6 +154,14 @@ internal fun lyricsLineInsets(alignment: LyricsAlignment): LyricsLineInsets {
 }
 
 private const val ActiveUnsungAlpha = 0.58f
+
+// A word's own "wow": a short pop around the moment it starts being sung. The
+// window is capped by the word's duration, so fast syllables don't overlap.
+private const val WordPopDurationMs = 320f
+private const val WordPopScale = 0.14f
+private const val WordPopHoldStart = 0.4f
+private const val WordPopHoldEnd = 0.6f
+
 private const val SubTextFadeMs = 350
 private val RubyFontSize = 11.sp
 private val RubyLineHeight = 13.sp
@@ -304,6 +325,8 @@ fun LyricsGlowLine(
                         rubyPlacement = rubyPlacement,
                         rubyColor = readingColor,
                         motionStyle = motionStyle,
+                        accentColor = accentColor,
+                        wordPopEnabled = wordMotion && !suppressEffects,
                     )
                 } else if (leadText.isNotEmpty()) {
                     val plainLayout = remember(leadText) { arrayOfNulls<TextLayoutResult>(1) }
@@ -532,9 +555,13 @@ internal fun KaraokeSweepText(
     singleLine: Boolean = false,
     motionScale: Float = 1f,
     probe: SweepProbe? = null,
+    accentColor: Color = Color(0xFF7B5CFF),
+    wordPopEnabled: Boolean = true,
 ) {
     val head = rememberKaraokeHead(text, words, positionProvider, motionStyle == LyricsMotionStyle.MOTION)
     val filled = (head.offset.floatValue * text.length).roundToInt()
+    val lineWords: LyricLineWords = remember(text, words) { lyricLineWords(text, words) }
+    val wordCutout = remember { Path() }
     val style = MaterialTheme.typography.headlineSmall.copy(
         fontSize = fontSize,
         lineHeight = if (!ruby.isNullOrEmpty()) (lineHeight.value + RubyHeadroomSp).sp else lineHeight,
@@ -552,7 +579,64 @@ internal fun KaraokeSweepText(
             maxLines = if (singleLine) 1 else Int.MAX_VALUE,
             onTextLayout = { layoutHolder[0] = it },
             modifier = Modifier.drawWithContent {
-                drawContent()
+                // The frame clock writes these snapshot states; reading one here
+                // redraws the row whenever the sung position moves.
+                head.motionTick.intValue
+                val measured = layoutHolder[0]
+                val active = if (wordPopEnabled) activeSungWord(lineWords, positionProvider()) else null
+                val envelope = active?.let { wordPopEnvelope(it) } ?: 0f
+                val rect = if (active != null && envelope > 0.01f && measured != null) {
+                    wordRect(measured, active.word.range)
+                } else {
+                    null
+                }
+                if (active != null && rect != null && measured != null) {
+                    val center = rect.center
+                    val glowRadius = max(rect.width, rect.height) * 0.75f + rect.height * 0.35f * envelope
+                    drawCircle(
+                        brush = Brush.radialGradient(
+                            colors = listOf(
+                                accentColor.copy(alpha = (if (highBloom) 0.30f else 0.14f) * envelope),
+                                Color.Transparent,
+                            ),
+                            center = center,
+                            radius = glowRadius,
+                        ),
+                        center = center,
+                        radius = glowRadius,
+                    )
+                    // Cut the word out of the line, then draw it again on its own
+                    // pose: the line's layout, sweep and glow stay untouched.
+                    wordCutout.reset()
+                    wordCutout.addRect(
+                        Rect(
+                            left = rect.left - 1f,
+                            top = rect.top,
+                            right = rect.right + 1f,
+                            bottom = rect.bottom,
+                        ),
+                    )
+                    clipPath(wordCutout, ClipOp.Difference) {
+                        this@drawWithContent.drawContent()
+                    }
+                    val popScale = 1f + WordPopScale * envelope
+                    val pad = max(4f, rect.height * 0.18f)
+                    val poppedColor = lerpColor(highlightColor, accentColor, 0.18f * envelope)
+                    withTransform({
+                        scale(popScale, popScale, pivot = center)
+                    }) {
+                        clipRect(
+                            left = rect.left - pad,
+                            top = rect.top - pad,
+                            right = rect.right + pad,
+                            bottom = rect.bottom + pad,
+                        ) {
+                            drawText(textLayoutResult = measured, color = poppedColor)
+                        }
+                    }
+                } else {
+                    drawContent()
+                }
                 probe?.let { p ->
                     p.textWidth = size.width
                     p.headX = size.width * head.offset.floatValue
@@ -579,6 +663,35 @@ internal fun KaraokeSweepText(
             }
         }
     }
+}
+
+/** Rise, a short hold, then release, so the word rejoins the line smoothly. */
+private fun wordPopEnvelope(active: SungWordProgress): Float {
+    val window = minOf(WordPopDurationMs, active.word.timing.durationMs.toFloat()).coerceAtLeast(1f)
+    val t = (active.elapsedMs.toFloat() / window).coerceIn(0f, 1f)
+    val rise = FastOutSlowInEasing.transform((t / WordPopHoldStart).coerceIn(0f, 1f))
+    val release = 1f - FastOutSlowInEasing.transform(
+        ((t - WordPopHoldEnd) / (1f - WordPopHoldEnd)).coerceIn(0f, 1f),
+    )
+    return minOf(rise, release).coerceIn(0f, 1f)
+}
+
+/** The box around a word's letters on the line where it starts, with a pixel of bleed. */
+private fun wordRect(result: TextLayoutResult, range: IntRange): Rect? {
+    val length = result.layoutInput.text.length
+    if (range.isEmpty() || range.first >= length) return null
+    val row = result.getLineForOffset(range.first)
+    var last = range.last.coerceAtMost(length - 1)
+    while (last > range.first && result.getLineForOffset(last) != row) last--
+    if (last < range.first) return null
+    val firstBox = result.getBoundingBox(range.first)
+    val lastBox = result.getBoundingBox(last)
+    return Rect(
+        left = minOf(firstBox.left, lastBox.left) - 1f,
+        top = result.getLineTop(row),
+        right = maxOf(firstBox.right, lastBox.right) + 1f,
+        bottom = result.getLineBottom(row),
+    )
 }
 
 @Composable

@@ -1,21 +1,37 @@
 // SettingsState.kt
 //
-// Compose helpers mirroring upstream `utils/DataStore.kt`. SettingsStore has no
-// reactive flow yet, so every preference is a locally remembered MutableState
-// seeded from the store and written through on change. TODO: subscribe to a
-// store flow so two screens showing the same key stay in sync.
+// Compose helpers mirroring upstream `utils/DataStore.kt`. SettingsStore itself
+// is synchronous; a coarse global version flow re-reads every remembered
+// preference after any write so screens and the theme stay in sync.
 
 package com.example.musicfy.settings
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.MutableState
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.update
 
 /** Provide the app's SettingsStore above any screen using the helpers below. */
 val LocalSettingsStore = compositionLocalOf<SettingsStore?> { null }
+
+/**
+ * SettingsStore is synchronous but has no observable flow yet. Every write bumps this version so
+ * all rememberPreference call sites re-read the store and stay in sync. This is deliberately
+ * coarse: a single preference change recomposes every remembered preference.
+ */
+private val SettingsChangeVersion = MutableStateFlow(0)
+
+fun notifySettingsChanged() {
+    SettingsChangeVersion.update { it + 1 }
+}
+
+@Composable
+fun rememberSettingsVersion(): Int = SettingsChangeVersion.collectAsState().value
 
 @Composable
 fun ProvideSettingsStore(
@@ -32,15 +48,16 @@ private fun <T> rememberStoredPreference(
     write: (SettingsStore?, T) -> Unit,
 ): MutableState<T> {
     val store = LocalSettingsStore.current
-    // TODO: derive this from a SettingsStore data flow instead of remembering a copy.
-    val state = remember(key, store) { mutableStateOf(read(store)) }
+    val version = rememberSettingsVersion()
+    // Recreate the remembered copy whenever any store write bumps the version.
+    val state = remember(key, store, version) { mutableStateOf(read(store)) }
     return remember(key, store, state) {
         object : MutableState<T> {
             override var value: T
                 get() = state.value
                 set(value) {
-                    state.value = value
                     write(store, value)
+                    notifySettingsChanged()
                 }
 
             override fun component1(): T = value
@@ -108,8 +125,8 @@ inline fun <reified T : Enum<T>> rememberEnumPreference(
     defaultValue: T,
 ): MutableState<T> {
     val store = LocalSettingsStore.current
-    // TODO: derive this from a SettingsStore data flow instead of remembering a copy.
-    val state = remember(key, store) {
+    val version = rememberSettingsVersion()
+    val state = remember(key, store, version) {
         mutableStateOf((store?.getString(key, "") ?: "").toEnum(defaultValue))
     }
     return remember(key, store, state) {
@@ -117,8 +134,8 @@ inline fun <reified T : Enum<T>> rememberEnumPreference(
             override var value: T
                 get() = state.value
                 set(value) {
-                    state.value = value
                     store?.setString(key, value.name)
+                    notifySettingsChanged()
                 }
 
             override fun component1(): T = value

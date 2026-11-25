@@ -12,9 +12,12 @@ import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
+import com.example.musicfy.LocalAppContainer
 import com.example.musicfy.settings.SettingsKeys
 import com.example.musicfy.settings.rememberPreference
 import com.example.musicfy.ui.component.GlassCard
+import com.example.musicfy.ui.player.transition.TransitionCreatorSheet
+import com.example.musicfy.ui.screens.audiofx.AudioFxMixerScreen
 import com.example.musicfy.ui.screens.HomeScreen
 import com.example.musicfy.ui.screens.artist.ArtistAlbumsScreen
 import com.example.musicfy.ui.screens.artist.ArtistItemsScreen
@@ -22,6 +25,7 @@ import com.example.musicfy.ui.screens.artist.ArtistScreen
 import com.example.musicfy.ui.screens.artist.ArtistSimilarScreen
 import com.example.musicfy.ui.screens.artist.ArtistSongsScreen
 import com.example.musicfy.ui.screens.library.LibraryHomeScreen
+import com.example.musicfy.ui.screens.modules.ModuleCatalogScreen
 import com.example.musicfy.ui.screens.playlist.OnlinePlaylistScreen
 import com.example.musicfy.ui.screens.search.GenreScreen
 import com.example.musicfy.ui.screens.search.OnlineSearchResult
@@ -87,7 +91,12 @@ fun NavGraphBuilder.navigationBuilder(navController: NavHostController) {
     ported(Routes.DISCORD, navController)
     ported(Routes.SCROBBLE, navController, stringArgs("site"))
     ported(Routes.PLAYBACK_SETTINGS, navController)
-    ported(Routes.CROSSMIX_SETTINGS, navController)
+    composable(route = Routes.CROSSMIX_SETTINGS) {
+        TransitionCreatorSheet(
+            onDismiss = { navController.navigateUp() },
+            onApply = { /* persisted by a future crossfade engine bridge */ },
+        )
+    }
     ported(
         Routes.DEVELOPER_SPACE,
         navController,
@@ -121,11 +130,19 @@ fun NavGraphBuilder.navigationBuilder(navController: NavHostController) {
     ported(Routes.EQUALIZER, navController)
     ported(Routes.GESTURE_SETTINGS, navController)
     ported(Routes.AUDIO_LAB, navController)
-    ported(Routes.AUDIO_FX, navController)
+    composable(route = Routes.AUDIO_FX) {
+        val controller = requireNotNull(LocalAppContainer.current).audioFxController
+        AudioFxMixerScreen(
+            onBack = { navController.navigateUp() },
+            controller = controller,
+        )
+    }
     ported(Routes.AUDIO_QUALITY, navController)
 
     // ---- modules --------------------------------------------------------------------------------
-    ported(Routes.MODULES, navController)
+    composable(route = Routes.MODULES) {
+        ModuleCatalogScreen(onBack = { navController.navigateUp() })
+    }
     ported(Routes.MODULE, navController, stringArgs("id"))
     ported(Routes.MODULE_SIGN_IN, navController, stringArgs("id"))
 
