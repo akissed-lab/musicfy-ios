@@ -23,10 +23,6 @@ import com.example.musicfy.player.queue.PlaybackQueue
 import com.example.musicfy.util.currentTimeMillis
 import com.example.musicfy.util.nowLocal
 import kotlinx.cinterop.ExperimentalForeignApi
-import kotlinx.cinterop.ObjCObjectVar
-import kotlinx.cinterop.alloc
-import kotlinx.cinterop.memScoped
-import kotlinx.cinterop.ptr
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -51,7 +47,6 @@ import platform.CoreMedia.CMTimeGetSeconds
 import platform.CoreMedia.CMTimeMake
 import platform.Foundation.NSNotification
 import platform.Foundation.NSNotificationCenter
-import platform.Foundation.NSError
 import platform.Foundation.NSNumber
 import platform.Foundation.NSURL
 import platform.darwin.NSObjectProtocol
@@ -195,6 +190,8 @@ class AvFoundationPlaybackController(
         .stateIn<PlaybackError?>(controllerScope, SharingStarted.Eagerly, null)
 
     init {
+        // Configure the category only. Activating the session is deferred to the first play
+        // command so a launch-time AVAudioSession failure cannot kill the app before the UI.
         configureAudioSession()
         applyAudioSettingsToPlayer()
         observeAudioSessionNotifications()
@@ -207,22 +204,35 @@ class AvFoundationPlaybackController(
     // -----------------------------------------------------------------------------------------
 
     private fun configureAudioSession() {
-        val ok = audioSession.setCategory(AVAudioSessionCategoryPlayback, error = null)
-        if (!ok) {
+        runCatching {
+            val ok = audioSession.setCategory(AVAudioSessionCategoryPlayback, error = null)
+            if (!ok) {
+                playerError = PlaybackError(
+                    message = "Audio session could not be configured",
+                    canRetry = false,
+                )
+            }
+        }.onFailure {
             playerError = PlaybackError(
-                message = "Audio session could not be configured",
+                message = "Audio session configuration threw: ${it.message.orEmpty()}",
                 canRetry = false,
             )
         }
-        activateAudioSession()
     }
 
-    private fun activateAudioSession() {
+    private fun activateAudioSession(): Boolean = runCatching {
         audioSession.setActive(true, error = null)
+        true
+    }.getOrElse {
+        playerError = PlaybackError(
+            message = "Audio session activation threw: ${it.message.orEmpty()}",
+            canRetry = true,
+        )
+        false
     }
 
     private fun deactivateAudioSession() {
-        audioSession.setActive(false, error = null)
+        runCatching { audioSession.setActive(false, error = null) }
     }
 
     private fun applyAudioSettingsToPlayer() {
@@ -233,7 +243,8 @@ class AvFoundationPlaybackController(
     }
 
     private fun playNative() {
-        if (!disposed) player.rate = speed
+        if (disposed) return
+        if (activateAudioSession()) player.rate = speed
     }
 
     private fun pauseNative() {
@@ -241,19 +252,26 @@ class AvFoundationPlaybackController(
     }
 
     private fun observeAudioSessionNotifications() {
-        val center = NSNotificationCenter.defaultCenter
-        notificationTokens += center.addObserverForName(
-            AVAudioSessionInterruptionNotification,
-            null,
-            null,
-        ) { note -> handleAudioInterruption(note) }
-        // Route changes (headphones, AirPlay) need no queue work; just make sure the session is
-        // still active. Full route/remote-command handling belongs to a later stage.
-        notificationTokens += center.addObserverForName(
-            AVAudioSessionRouteChangeNotification,
-            null,
-            null,
-        ) { activateAudioSession() }
+        runCatching {
+            val center = NSNotificationCenter.defaultCenter
+            notificationTokens += center.addObserverForName(
+                AVAudioSessionInterruptionNotification,
+                null,
+                null,
+            ) { note -> handleAudioInterruption(note) }
+            // Route changes (headphones, AirPlay) need no queue work; just make sure the session is
+            // still active. Full route/remote-command handling belongs to a later stage.
+            notificationTokens += center.addObserverForName(
+                AVAudioSessionRouteChangeNotification,
+                null,
+                null,
+            ) { activateAudioSession() }
+        }.onFailure {
+            playerError = PlaybackError(
+                message = "Audio session observer failed: ${it.message.orEmpty()}",
+                canRetry = false,
+            )
+        }
     }
 
     private fun handleAudioInterruption(note: NSNotification?) {

@@ -88,6 +88,12 @@ instead of starting a second, under-heaped Kotlin/Native link. The copy target
 must use `$(CONFIGURATION)/$(SDK_NAME)`, matching `FRAMEWORK_SEARCH_PATHS`;
 copying to a plain `iphoneos` folder makes Swift report `no such module 'ComposeApp'`.
 
+Startup crash hardening: the iOS `PRAGMA journal_mode = WAL` call was removed
+because it returns a result row that SQLDelight's `execute()` rejects;
+AVAudioSession activation is deferred to the first play command and all
+native setup is wrapped so a startup failure renders an error screen instead
+of terminating the process.
+
 Still outstanding: Discord/scrobble integrations, account-based imports,
 DRM/FairPlay, radio continuation, ciphered/PoToken-only streams and the
 secondary glass placeholders.
