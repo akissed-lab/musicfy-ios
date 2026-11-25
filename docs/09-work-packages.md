@@ -133,7 +133,9 @@ compatibility even though the upstream product name is Mochy Music.
 
 Black-screen fix (same integration): the old error composable had neither a
 background nor a text colour, so a caught startup failure rendered as black text
-on a black window. Startup is now a two-phase state machine: SQLite and
+on a black window. The reported failure was the iOS SQLite driver rejecting
+`execute()` for PRAGMA setters that return a row; all PRAGMAs now go through
+`executeQuery()` and their cursor is drained. Startup is now a two-phase state machine: SQLite and
 `NSUserDefaults` open off the main thread, then AVFoundation objects are created
 on the main thread after the first frame. Loading and failure states always draw
 an opaque high-contrast screen with a retry button; `AppContainer` and the
